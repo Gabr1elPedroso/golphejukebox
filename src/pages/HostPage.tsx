@@ -171,7 +171,7 @@ const HostPage = () => {
           </div>
 
           <Button
-            onClick={() => window.location.href = getSpotifyAuthUrl()}
+            onClick={async () => { window.location.href = await getSpotifyAuthUrl(); }}
             className="h-16 px-12 text-lg font-display font-bold rounded-2xl bg-green-500 hover:bg-green-400 text-foreground"
           >
             <Music className="w-6 h-6 mr-3" />
