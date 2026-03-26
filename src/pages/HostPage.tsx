@@ -316,14 +316,21 @@ const HostPage = () => {
                 Pedida por {currentTrack.requested_by}
               </p>
             </div>
-            <Button
-              onClick={handleSkip}
-              variant="outline"
-              className="rounded-2xl border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10"
-            >
-              <SkipForward className="w-4 h-4 mr-2" />
-              Pular
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={pausePlayback}
+                className="h-12 w-12 rounded-full bg-[#ffc107] hover:bg-[#ffca28] text-[#1a1a2e] p-0"
+              >
+                <Pause className="w-5 h-5" />
+              </Button>
+              <Button
+                onClick={handleSkip}
+                className="h-12 px-6 rounded-full bg-[#ffc107] hover:bg-[#ffca28] text-[#1a1a2e] font-display font-bold"
+              >
+                <SkipForward className="w-5 h-5 mr-2" />
+                Pular
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="text-center space-y-6 animate-slide-up">
