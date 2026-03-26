@@ -1,0 +1,290 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Music, Disc3, Users, SkipForward } from "lucide-react";
+import { QueueItem, subscribeToQueue, removeFromQueue } from "@/lib/queue";
+import { exchangeCodeForToken, refreshAccessToken, getSpotifyAuthUrl } from "@/lib/spotify";
+import { Button } from "@/components/ui/button";
+
+declare global {
+  interface Window {
+    Spotify: any;
+    onSpotifyWebPlaybackSDKReady: () => void;
+  }
+}
+
+const HostPage = () => {
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [_refreshToken, setRefreshToken] = useState<string | null>(null);
+  const [player, setPlayer] = useState<any>(null);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [currentTrack, setCurrentTrack] = useState<QueueItem | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+  const isPlayingRef = useRef(false);
+  const currentTrackRef = useRef<QueueItem | null>(null);
+  const queueRef = useRef<QueueItem[]>([]);
+
+  // Keep refs in sync
+  useEffect(() => { queueRef.current = queue; }, [queue]);
+  useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+
+  // Handle OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+
+    if (code) {
+      window.history.replaceState({}, "", "/host");
+      const redirectUri = `${window.location.origin}/host`;
+      exchangeCodeForToken(code, redirectUri).then((data) => {
+        setAccessToken(data.access_token);
+        setRefreshToken(data.refresh_token);
+        // Auto-refresh before expiry
+        setTimeout(() => {
+          if (data.refresh_token) {
+            refreshAccessToken(data.refresh_token).then((r) => {
+              setAccessToken(r.access_token);
+            });
+          }
+        }, (data.expires_in - 120) * 1000);
+      }).catch(() => {
+        console.error("Failed to exchange code");
+      });
+    }
+  }, []);
+
+  // Load Spotify SDK
+  useEffect(() => {
+    if (!accessToken) return;
+
+    const script = document.createElement("script");
+    script.src = "https://sdk.scdn.co/spotify-player.js";
+    script.async = true;
+    document.body.appendChild(script);
+
+    window.onSpotifyWebPlaybackSDKReady = () => {
+      const p = new window.Spotify.Player({
+        name: "Golphe JukeBox",
+        getOAuthToken: (cb: (t: string) => void) => cb(accessToken),
+        volume: 0.8,
+      });
+
+      p.addListener("ready", ({ device_id }: { device_id: string }) => {
+        setDeviceId(device_id);
+        setIsReady(true);
+      });
+
+      p.addListener("player_state_changed", (state: any) => {
+        if (!state) return;
+
+        // Track ended
+        if (state.paused && state.position === 0 && currentTrackRef.current) {
+          handleTrackEnded();
+        }
+      });
+
+      p.connect();
+      setPlayer(p);
+    };
+
+    return () => {
+      script.remove();
+    };
+  }, [accessToken]);
+
+  // Subscribe to queue
+  useEffect(() => {
+    const unsub = subscribeToQueue((items) => {
+      setQueue(items);
+    });
+    return unsub;
+  }, []);
+
+  // Auto-play when queue updates and nothing is playing
+  useEffect(() => {
+    if (queue.length > 0 && !isPlayingRef.current && deviceId && accessToken) {
+      playNext();
+    }
+  }, [queue, deviceId, accessToken]);
+
+  const playTrack = useCallback(async (uri: string) => {
+    if (!deviceId || !accessToken) return;
+
+    await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ uris: [uri] }),
+    });
+  }, [deviceId, accessToken]);
+
+  const playNext = useCallback(async () => {
+    const q = queueRef.current;
+    if (q.length === 0) {
+      setCurrentTrack(null);
+      setIsPlaying(false);
+      return;
+    }
+
+    const next = q[0];
+    setCurrentTrack(next);
+    setIsPlaying(true);
+
+    try {
+      await playTrack(next.spotify_track_uri);
+      await removeFromQueue(next.id);
+    } catch (err) {
+      console.error("Error playing track:", err);
+      setIsPlaying(false);
+    }
+  }, [playTrack]);
+
+  const handleTrackEnded = useCallback(() => {
+    setIsPlaying(false);
+    setTimeout(() => playNext(), 500);
+  }, [playNext]);
+
+  const handleSkip = () => {
+    if (player) {
+      player.pause();
+    }
+    setIsPlaying(false);
+    playNext();
+  };
+
+  // Login screen
+  if (!accessToken) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gradient-primary">
+        <div className="text-center space-y-8 animate-slide-up">
+          <div className="space-y-4">
+            <div className="w-24 h-24 rounded-3xl bg-secondary/20 flex items-center justify-center mx-auto">
+              <Disc3 className="w-12 h-12 text-secondary animate-pulse-glow" />
+            </div>
+            <h1 className="text-5xl font-display font-bold text-primary-foreground">
+              Golphe JukeBox
+            </h1>
+            <p className="text-primary-foreground/60 text-lg">Painel do Host</p>
+          </div>
+
+          <Button
+            onClick={async () => { window.location.href = await getSpotifyAuthUrl(); }}
+            className="h-16 px-12 text-lg font-display font-bold rounded-2xl bg-green-500 hover:bg-green-400 text-foreground"
+          >
+            <Music className="w-6 h-6 mr-3" />
+            Conectar com Spotify
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Waiting for SDK
+  if (!isReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center gradient-primary">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-secondary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-primary-foreground/70 font-display">Conectando ao player...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen gradient-primary flex flex-col lg:flex-row">
+      {/* Now Playing */}
+      <div className="flex-1 flex flex-col items-center justify-center p-8 lg:p-16">
+        {currentTrack ? (
+          <div className="text-center space-y-8 animate-slide-up max-w-lg">
+            <div className="relative inline-block">
+              <img
+                src={currentTrack.album_cover_url}
+                alt={currentTrack.title}
+                className="w-64 h-64 lg:w-80 lg:h-80 rounded-3xl object-cover now-playing-glow"
+              />
+              <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-secondary text-secondary-foreground text-xs font-display font-bold">
+                TOCANDO AGORA
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-3xl lg:text-4xl font-display font-bold text-primary-foreground">
+                {currentTrack.title}
+              </h2>
+              <p className="text-xl text-primary-foreground/70">{currentTrack.artist}</p>
+              <p className="text-sm text-secondary flex items-center justify-center gap-1.5">
+                <Users className="w-4 h-4" />
+                Pedida por {currentTrack.requested_by}
+              </p>
+            </div>
+            <Button
+              onClick={handleSkip}
+              variant="outline"
+              className="rounded-2xl border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10"
+            >
+              <SkipForward className="w-4 h-4 mr-2" />
+              Pular
+            </Button>
+          </div>
+        ) : (
+          <div className="text-center space-y-6 animate-slide-up">
+            <Disc3 className="w-24 h-24 text-primary-foreground/20 mx-auto" />
+            <div>
+              <h2 className="text-3xl font-display font-bold text-primary-foreground/40">
+                Nenhuma música tocando
+              </h2>
+              <p className="text-primary-foreground/30 mt-2">
+                Aguardando pedidos dos convidados...
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Queue sidebar */}
+      <div className="w-full lg:w-96 bg-foreground/5 backdrop-blur-sm border-l border-primary-foreground/10 p-6 overflow-y-auto max-h-screen">
+        <h3 className="font-display font-bold text-primary-foreground/80 text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+          <Music className="w-4 h-4 text-secondary" />
+          Próximas ({queue.length})
+        </h3>
+
+        {queue.length === 0 ? (
+          <p className="text-primary-foreground/30 text-sm text-center py-8">
+            A fila está vazia
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {queue.map((item, i) => (
+              <div
+                key={item.id}
+                className="flex items-center gap-3 p-3 rounded-xl bg-primary-foreground/5 hover:bg-primary-foreground/10 transition-colors animate-slide-up"
+              >
+                <span className="text-xs font-display font-bold text-secondary w-5 text-center">
+                  {i + 1}
+                </span>
+                <img
+                  src={item.album_cover_url}
+                  alt={item.title}
+                  className="w-10 h-10 rounded-lg object-cover"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-primary-foreground truncate">
+                    {item.title}
+                  </p>
+                  <p className="text-xs text-primary-foreground/50 truncate">
+                    {item.artist} · {item.requested_by}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default HostPage;
