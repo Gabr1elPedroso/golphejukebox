@@ -13,7 +13,7 @@ declare global {
 
 const HostPage = () => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [refreshToken, setRefreshToken] = useState<string | null>(null);
+  const [_refreshToken, setRefreshToken] = useState<string | null>(null);
   const [player, setPlayer] = useState<any>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
