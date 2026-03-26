@@ -14,7 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      queue: {
+        Row: {
+          album_cover_url: string
+          artist: string
+          created_at: string
+          id: string
+          requested_by: string
+          spotify_track_uri: string
+          title: string
+        }
+        Insert: {
+          album_cover_url: string
+          artist: string
+          created_at?: string
+          id?: string
+          requested_by: string
+          spotify_track_uri: string
+          title: string
+        }
+        Update: {
+          album_cover_url?: string
+          artist?: string
+          created_at?: string
+          id?: string
+          requested_by?: string
+          spotify_track_uri?: string
+          title?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
