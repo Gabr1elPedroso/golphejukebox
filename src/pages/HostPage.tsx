@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Music, Disc3, Users, SkipForward } from "lucide-react";
+import { Music, Disc3, Users, SkipForward, Play } from "lucide-react";
 import { QueueItem, subscribeToQueue, removeFromQueue } from "@/lib/queue";
 import { exchangeCodeForToken, refreshAccessToken, getSpotifyAuthUrl } from "@/lib/spotify";
 import { Button } from "@/components/ui/button";
@@ -19,10 +19,12 @@ const HostPage = () => {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentTrack, setCurrentTrack] = useState<QueueItem | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isReady, setIsReady] = useState(false);
+  const [sdkReady, setSdkReady] = useState(false);
+  const [userActivated, setUserActivated] = useState(false);
   const isPlayingRef = useRef(false);
   const currentTrackRef = useRef<QueueItem | null>(null);
   const queueRef = useRef<QueueItem[]>([]);
+  const playingUriRef = useRef<string | null>(null);
 
   // Keep refs in sync
   useEffect(() => { queueRef.current = queue; }, [queue]);
@@ -40,7 +42,6 @@ const HostPage = () => {
       exchangeCodeForToken(code, redirectUri).then((data) => {
         setAccessToken(data.access_token);
         setRefreshToken(data.refresh_token);
-        // Auto-refresh before expiry
         setTimeout(() => {
           if (data.refresh_token) {
             refreshAccessToken(data.refresh_token).then((r) => {
@@ -54,7 +55,7 @@ const HostPage = () => {
     }
   }, []);
 
-  // Load Spotify SDK
+  // Load Spotify SDK script (but don't create player yet)
   useEffect(() => {
     if (!accessToken) return;
 
@@ -64,34 +65,51 @@ const HostPage = () => {
     document.body.appendChild(script);
 
     window.onSpotifyWebPlaybackSDKReady = () => {
-      const p = new window.Spotify.Player({
-        name: "Golphe JukeBox",
-        getOAuthToken: (cb: (t: string) => void) => cb(accessToken),
-        volume: 0.8,
-      });
+      setSdkReady(true);
+    };
 
-      p.addListener("ready", ({ device_id }: { device_id: string }) => {
-        setDeviceId(device_id);
-        setIsReady(true);
-      });
+    return () => { script.remove(); };
+  }, [accessToken]);
 
-      p.addListener("player_state_changed", (state: any) => {
-        if (!state) return;
+  // Initialize player ONLY after user clicks "Iniciar Jukebox"
+  const initializePlayer = useCallback(() => {
+    if (!accessToken || !sdkReady) return;
 
-        // Track ended
-        if (state.paused && state.position === 0 && currentTrackRef.current) {
+    const p = new window.Spotify.Player({
+      name: "Golphe JukeBox",
+      getOAuthToken: (cb: (t: string) => void) => cb(accessToken),
+      volume: 0.8,
+    });
+
+    p.addListener("ready", ({ device_id }: { device_id: string }) => {
+      console.log("Spotify Player ready, device_id:", device_id);
+      setDeviceId(device_id);
+    });
+
+    p.addListener("player_state_changed", (state: any) => {
+      if (!state) return;
+
+      const currentUri = state.track_window?.current_track?.uri;
+      const { paused, position, duration } = state;
+
+      // Track ended: paused, position is 0, and the playing URI changed or track finished
+      if (paused && currentTrackRef.current) {
+        const wasPlaying = playingUriRef.current;
+        // Track ended naturally: position ~0 and current track URI differs from what we started
+        // OR position reached near end
+        if (
+          (position === 0 && wasPlaying && currentUri !== wasPlaying) ||
+          (position === 0 && wasPlaying === currentUri && duration > 0)
+        ) {
           handleTrackEnded();
         }
-      });
+      }
+    });
 
-      p.connect();
-      setPlayer(p);
-    };
-
-    return () => {
-      script.remove();
-    };
-  }, [accessToken]);
+    p.connect();
+    setPlayer(p);
+    setUserActivated(true);
+  }, [accessToken, sdkReady]);
 
   // Subscribe to queue
   useEffect(() => {
@@ -111,7 +129,7 @@ const HostPage = () => {
   const playTrack = useCallback(async (uri: string) => {
     if (!deviceId || !accessToken) return;
 
-    await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+    const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -119,6 +137,14 @@ const HostPage = () => {
       },
       body: JSON.stringify({ uris: [uri] }),
     });
+
+    if (!res.ok) {
+      const err = await res.text();
+      console.error("Spotify play error:", res.status, err);
+      throw new Error(`Play failed: ${res.status}`);
+    }
+
+    playingUriRef.current = uri;
   }, [deviceId, accessToken]);
 
   const playNext = useCallback(async () => {
@@ -126,6 +152,7 @@ const HostPage = () => {
     if (q.length === 0) {
       setCurrentTrack(null);
       setIsPlaying(false);
+      playingUriRef.current = null;
       return;
     }
 
@@ -135,23 +162,34 @@ const HostPage = () => {
 
     try {
       await playTrack(next.spotify_track_uri);
-      await removeFromQueue(next.id);
+      // Do NOT remove from queue here — wait for track to actually finish
     } catch (err) {
       console.error("Error playing track:", err);
       setIsPlaying(false);
     }
   }, [playTrack]);
 
-  const handleTrackEnded = useCallback(() => {
+  const handleTrackEnded = useCallback(async () => {
+    const track = currentTrackRef.current;
+    if (track) {
+      console.log("Track ended, removing from queue:", track.title);
+      await removeFromQueue(track.id);
+    }
     setIsPlaying(false);
+    playingUriRef.current = null;
     setTimeout(() => playNext(), 500);
   }, [playNext]);
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
     if (player) {
       player.pause();
     }
+    const track = currentTrackRef.current;
+    if (track) {
+      await removeFromQueue(track.id);
+    }
     setIsPlaying(false);
+    playingUriRef.current = null;
     playNext();
   };
 
@@ -182,8 +220,42 @@ const HostPage = () => {
     );
   }
 
-  // Waiting for SDK
-  if (!isReady) {
+  // Waiting for SDK to load or user hasn't activated yet
+  if (!userActivated) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gradient-primary">
+        <div className="text-center space-y-8 animate-slide-up">
+          <div className="space-y-4">
+            <div className="w-24 h-24 rounded-3xl bg-secondary/20 flex items-center justify-center mx-auto">
+              <Disc3 className="w-12 h-12 text-secondary animate-pulse-glow" />
+            </div>
+            <h1 className="text-5xl font-display font-bold text-primary-foreground">
+              Golphe JukeBox
+            </h1>
+            <p className="text-primary-foreground/60 text-lg">Spotify conectado!</p>
+          </div>
+
+          <Button
+            onClick={initializePlayer}
+            disabled={!sdkReady}
+            className="h-20 px-16 text-xl font-display font-bold rounded-2xl bg-secondary hover:bg-secondary/90 text-secondary-foreground"
+          >
+            <Play className="w-8 h-8 mr-3" />
+            {sdkReady ? "Iniciar Jukebox" : "Carregando SDK..."}
+          </Button>
+          {!sdkReady && (
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-secondary border-t-transparent rounded-full animate-spin" />
+              <p className="text-primary-foreground/50 text-sm">Carregando Spotify SDK...</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Waiting for device to be ready
+  if (!deviceId) {
     return (
       <div className="min-h-screen flex items-center justify-center gradient-primary">
         <div className="text-center space-y-4">
