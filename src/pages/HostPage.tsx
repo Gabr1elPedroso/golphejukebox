@@ -180,17 +180,41 @@ const HostPage = () => {
     setTimeout(() => playNext(), 500);
   }, [playNext]);
 
+  const pausePlayback = useCallback(async () => {
+    if (!deviceId || !accessToken) return;
+    await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${deviceId}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }, [deviceId, accessToken]);
+
   const handleSkip = async () => {
-    if (player) {
-      player.pause();
-    }
     const track = currentTrackRef.current;
     if (track) {
       await removeFromQueue(track.id);
     }
-    setIsPlaying(false);
-    playingUriRef.current = null;
-    playNext();
+
+    // After removal, fetch fresh queue
+    const { getQueue } = await import("@/lib/queue");
+    const freshQueue = await getQueue();
+
+    if (freshQueue.length > 0) {
+      const next = freshQueue[0];
+      setCurrentTrack(next);
+      setIsPlaying(true);
+      try {
+        await playTrack(next.spotify_track_uri);
+      } catch (err) {
+        console.error("Error playing next track:", err);
+        setIsPlaying(false);
+      }
+    } else {
+      // No more songs — pause and clear
+      await pausePlayback();
+      setCurrentTrack(null);
+      setIsPlaying(false);
+      playingUriRef.current = null;
+    }
   };
 
   // Login screen
