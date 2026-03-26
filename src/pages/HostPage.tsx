@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Music, Disc3, Users, SkipForward, Play } from "lucide-react";
-import { QueueItem, subscribeToQueue, removeFromQueue } from "@/lib/queue";
+import { QueueItem, subscribeToQueue, removeFromQueue, getQueue } from "@/lib/queue";
 import { exchangeCodeForToken, refreshAccessToken, getSpotifyAuthUrl } from "@/lib/spotify";
 import { Button } from "@/components/ui/button";
 
@@ -14,22 +14,25 @@ declare global {
 const HostPage = () => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [_refreshToken, setRefreshToken] = useState<string | null>(null);
-  const [_player, setPlayer] = useState<any>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentTrack, setCurrentTrack] = useState<QueueItem | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [sdkReady, setSdkReady] = useState(false);
-  const [userActivated, setUserActivated] = useState(false);
+  const [needsActivation, setNeedsActivation] = useState(false);
+  const [loading, setLoading] = useState(true);
   const isPlayingRef = useRef(false);
   const currentTrackRef = useRef<QueueItem | null>(null);
   const queueRef = useRef<QueueItem[]>([]);
   const playingUriRef = useRef<string | null>(null);
+  const deviceIdRef = useRef<string | null>(null);
+  const accessTokenRef = useRef<string | null>(null);
 
   // Keep refs in sync
   useEffect(() => { queueRef.current = queue; }, [queue]);
   useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+  useEffect(() => { deviceIdRef.current = deviceId; }, [deviceId]);
+  useEffect(() => { accessTokenRef.current = accessToken; }, [accessToken]);
 
   // Handle OAuth callback
   useEffect(() => {
@@ -55,7 +58,7 @@ const HostPage = () => {
     }
   }, []);
 
-  // Load Spotify SDK script (but don't create player yet)
+  // Load Spotify SDK + auto-initialize player
   useEffect(() => {
     if (!accessToken) return;
 
@@ -65,51 +68,39 @@ const HostPage = () => {
     document.body.appendChild(script);
 
     window.onSpotifyWebPlaybackSDKReady = () => {
-      setSdkReady(true);
+      const p = new window.Spotify.Player({
+        name: "Golphe JukeBox",
+        getOAuthToken: (cb: (t: string) => void) => cb(accessTokenRef.current || accessToken),
+        volume: 0.8,
+      });
+
+      p.addListener("ready", ({ device_id }: { device_id: string }) => {
+        console.log("Spotify Player ready, device_id:", device_id);
+        setDeviceId(device_id);
+        setLoading(false);
+      });
+
+      p.addListener("player_state_changed", (state: any) => {
+        if (!state) return;
+        const currentUri = state.track_window?.current_track?.uri;
+        const { paused, position, duration } = state;
+
+        if (paused && currentTrackRef.current) {
+          const wasPlaying = playingUriRef.current;
+          if (
+            (position === 0 && wasPlaying && currentUri !== wasPlaying) ||
+            (position === 0 && wasPlaying === currentUri && duration > 0)
+          ) {
+            handleTrackEnded();
+          }
+        }
+      });
+
+      p.connect();
     };
 
     return () => { script.remove(); };
   }, [accessToken]);
-
-  // Initialize player ONLY after user clicks "Iniciar Jukebox"
-  const initializePlayer = useCallback(() => {
-    if (!accessToken || !sdkReady) return;
-
-    const p = new window.Spotify.Player({
-      name: "Golphe JukeBox",
-      getOAuthToken: (cb: (t: string) => void) => cb(accessToken),
-      volume: 0.8,
-    });
-
-    p.addListener("ready", ({ device_id }: { device_id: string }) => {
-      console.log("Spotify Player ready, device_id:", device_id);
-      setDeviceId(device_id);
-    });
-
-    p.addListener("player_state_changed", (state: any) => {
-      if (!state) return;
-
-      const currentUri = state.track_window?.current_track?.uri;
-      const { paused, position, duration } = state;
-
-      // Track ended: paused, position is 0, and the playing URI changed or track finished
-      if (paused && currentTrackRef.current) {
-        const wasPlaying = playingUriRef.current;
-        // Track ended naturally: position ~0 and current track URI differs from what we started
-        // OR position reached near end
-        if (
-          (position === 0 && wasPlaying && currentUri !== wasPlaying) ||
-          (position === 0 && wasPlaying === currentUri && duration > 0)
-        ) {
-          handleTrackEnded();
-        }
-      }
-    });
-
-    p.connect();
-    setPlayer(p);
-    setUserActivated(true);
-  }, [accessToken, sdkReady]);
 
   // Subscribe to queue
   useEffect(() => {
@@ -119,20 +110,15 @@ const HostPage = () => {
     return unsub;
   }, []);
 
-  // Auto-play when queue updates and nothing is playing
-  useEffect(() => {
-    if (queue.length > 0 && !isPlayingRef.current && deviceId && accessToken) {
-      playNext();
-    }
-  }, [queue, deviceId, accessToken]);
-
   const playTrack = useCallback(async (uri: string) => {
-    if (!deviceId || !accessToken) return;
+    const did = deviceIdRef.current;
+    const token = accessTokenRef.current;
+    if (!did || !token) return;
 
-    const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+    const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${did}`, {
       method: "PUT",
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ uris: [uri] }),
@@ -141,11 +127,16 @@ const HostPage = () => {
     if (!res.ok) {
       const err = await res.text();
       console.error("Spotify play error:", res.status, err);
+      // Autoplay blocked by browser
+      if (res.status === 403 || res.status === 401) {
+        setNeedsActivation(true);
+      }
       throw new Error(`Play failed: ${res.status}`);
     }
 
+    setNeedsActivation(false);
     playingUriRef.current = uri;
-  }, [deviceId, accessToken]);
+  }, []);
 
   const playNext = useCallback(async () => {
     const q = queueRef.current;
@@ -162,7 +153,6 @@ const HostPage = () => {
 
     try {
       await playTrack(next.spotify_track_uri);
-      // Do NOT remove from queue here — wait for track to actually finish
     } catch (err) {
       console.error("Error playing track:", err);
       setIsPlaying(false);
@@ -180,13 +170,22 @@ const HostPage = () => {
     setTimeout(() => playNext(), 500);
   }, [playNext]);
 
+  // Auto-play when queue updates and nothing is playing
+  useEffect(() => {
+    if (queue.length > 0 && !isPlayingRef.current && deviceId && accessToken) {
+      playNext();
+    }
+  }, [queue, deviceId, accessToken, playNext]);
+
   const pausePlayback = useCallback(async () => {
-    if (!deviceId || !accessToken) return;
-    await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${deviceId}`, {
+    const did = deviceIdRef.current;
+    const token = accessTokenRef.current;
+    if (!did || !token) return;
+    await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${did}`, {
       method: "PUT",
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: { Authorization: `Bearer ${token}` },
     });
-  }, [deviceId, accessToken]);
+  }, []);
 
   const handleSkip = async () => {
     const track = currentTrackRef.current;
@@ -194,8 +193,6 @@ const HostPage = () => {
       await removeFromQueue(track.id);
     }
 
-    // After removal, fetch fresh queue
-    const { getQueue } = await import("@/lib/queue");
     const freshQueue = await getQueue();
 
     if (freshQueue.length > 0) {
@@ -209,11 +206,17 @@ const HostPage = () => {
         setIsPlaying(false);
       }
     } else {
-      // No more songs — pause and clear
       await pausePlayback();
       setCurrentTrack(null);
       setIsPlaying(false);
       playingUriRef.current = null;
+    }
+  };
+
+  const handleActivateAudio = async () => {
+    setNeedsActivation(false);
+    if (queueRef.current.length > 0) {
+      await playNext();
     }
   };
 
@@ -244,42 +247,8 @@ const HostPage = () => {
     );
   }
 
-  // Waiting for SDK to load or user hasn't activated yet
-  if (!userActivated) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gradient-primary">
-        <div className="text-center space-y-8 animate-slide-up">
-          <div className="space-y-4">
-            <div className="w-24 h-24 rounded-3xl bg-secondary/20 flex items-center justify-center mx-auto">
-              <Disc3 className="w-12 h-12 text-secondary animate-pulse-glow" />
-            </div>
-            <h1 className="text-5xl font-display font-bold text-primary-foreground">
-              Golphe JukeBox
-            </h1>
-            <p className="text-primary-foreground/60 text-lg">Spotify conectado!</p>
-          </div>
-
-          <Button
-            onClick={initializePlayer}
-            disabled={!sdkReady}
-            className="h-20 px-16 text-xl font-display font-bold rounded-2xl bg-secondary hover:bg-secondary/90 text-secondary-foreground"
-          >
-            <Play className="w-8 h-8 mr-3" />
-            {sdkReady ? "Iniciar Jukebox" : "Carregando SDK..."}
-          </Button>
-          {!sdkReady && (
-            <div className="flex items-center justify-center gap-2">
-              <div className="w-4 h-4 border-2 border-secondary border-t-transparent rounded-full animate-spin" />
-              <p className="text-primary-foreground/50 text-sm">Carregando Spotify SDK...</p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Waiting for device to be ready
-  if (!deviceId) {
+  // Loading SDK / connecting
+  if (loading || !deviceId) {
     return (
       <div className="min-h-screen flex items-center justify-center gradient-primary">
         <div className="text-center space-y-4">
@@ -291,7 +260,20 @@ const HostPage = () => {
   }
 
   return (
-    <div className="min-h-screen gradient-primary flex flex-col lg:flex-row">
+    <div className="min-h-screen gradient-primary flex flex-col lg:flex-row relative">
+      {/* Autoplay activation overlay */}
+      {needsActivation && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <Button
+            onClick={handleActivateAudio}
+            className="h-20 px-16 text-xl font-display font-bold rounded-2xl bg-secondary hover:bg-secondary/90 text-secondary-foreground animate-slide-up"
+          >
+            <Play className="w-8 h-8 mr-3" />
+            Clique para ativar o áudio da festa
+          </Button>
+        </div>
+      )}
+
       {/* Now Playing */}
       <div className="flex-1 flex flex-col items-center justify-center p-8 lg:p-16">
         {currentTrack ? (
