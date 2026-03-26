@@ -35,17 +35,12 @@ export async function refreshAccessToken(refreshToken: string) {
   return data;
 }
 
-export function getSpotifyAuthUrl(): string {
-  const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
+export async function getSpotifyAuthUrl(): Promise<string> {
   const redirectUri = `${window.location.origin}/host`;
-  const scopes = 'streaming user-read-email user-read-private';
-
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: clientId,
-    scope: scopes,
-    redirect_uri: redirectUri,
+  const { data, error } = await supabase.functions.invoke('spotify-auth-url', {
+    body: { redirect_uri: redirectUri },
   });
 
-  return `https://accounts.spotify.com/authorize?${params.toString()}`;
+  if (error) throw new Error(error.message);
+  return data.url;
 }
