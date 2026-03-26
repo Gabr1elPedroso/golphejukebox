@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Music, Disc3, Users, SkipForward, Play } from "lucide-react";
+import { Music, Disc3, Users, SkipForward, Pause, Play } from "lucide-react";
 import { QueueItem, subscribeToQueue, removeFromQueue } from "@/lib/queue";
 import { exchangeCodeForToken, refreshAccessToken, getSpotifyAuthUrl } from "@/lib/spotify";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ declare global {
 const HostPage = () => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [_refreshToken, setRefreshToken] = useState<string | null>(null);
-  const [player, setPlayer] = useState<any>(null);
+  const [_player, setPlayer] = useState<any>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentTrack, setCurrentTrack] = useState<QueueItem | null>(null);
@@ -180,17 +180,41 @@ const HostPage = () => {
     setTimeout(() => playNext(), 500);
   }, [playNext]);
 
+  const pausePlayback = useCallback(async () => {
+    if (!deviceId || !accessToken) return;
+    await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${deviceId}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }, [deviceId, accessToken]);
+
   const handleSkip = async () => {
-    if (player) {
-      player.pause();
-    }
     const track = currentTrackRef.current;
     if (track) {
       await removeFromQueue(track.id);
     }
-    setIsPlaying(false);
-    playingUriRef.current = null;
-    playNext();
+
+    // After removal, fetch fresh queue
+    const { getQueue } = await import("@/lib/queue");
+    const freshQueue = await getQueue();
+
+    if (freshQueue.length > 0) {
+      const next = freshQueue[0];
+      setCurrentTrack(next);
+      setIsPlaying(true);
+      try {
+        await playTrack(next.spotify_track_uri);
+      } catch (err) {
+        console.error("Error playing next track:", err);
+        setIsPlaying(false);
+      }
+    } else {
+      // No more songs — pause and clear
+      await pausePlayback();
+      setCurrentTrack(null);
+      setIsPlaying(false);
+      playingUriRef.current = null;
+    }
   };
 
   // Login screen
@@ -292,14 +316,21 @@ const HostPage = () => {
                 Pedida por {currentTrack.requested_by}
               </p>
             </div>
-            <Button
-              onClick={handleSkip}
-              variant="outline"
-              className="rounded-2xl border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10"
-            >
-              <SkipForward className="w-4 h-4 mr-2" />
-              Pular
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={pausePlayback}
+                className="h-12 w-12 rounded-full bg-[#ffc107] hover:bg-[#ffca28] text-[#1a1a2e] p-0"
+              >
+                <Pause className="w-5 h-5" />
+              </Button>
+              <Button
+                onClick={handleSkip}
+                className="h-12 px-6 rounded-full bg-[#ffc107] hover:bg-[#ffca28] text-[#1a1a2e] font-display font-bold"
+              >
+                <SkipForward className="w-5 h-5 mr-2" />
+                Pular
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="text-center space-y-6 animate-slide-up">
