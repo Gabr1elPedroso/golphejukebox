@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Music, Disc3, Users, SkipForward, Pause, Play } from "lucide-react";
+import { Music, Disc3, Users, SkipForward, Play } from "lucide-react";
 import { QueueItem, subscribeToQueue, removeFromQueue } from "@/lib/queue";
 import { exchangeCodeForToken, refreshAccessToken, getSpotifyAuthUrl } from "@/lib/spotify";
 import { Button } from "@/components/ui/button";
