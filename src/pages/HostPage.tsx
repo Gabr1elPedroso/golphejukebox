@@ -316,13 +316,7 @@ const HostPage = () => {
                 Pedida por {currentTrack.requested_by}
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={pausePlayback}
-                className="h-12 w-12 rounded-full bg-[#ffc107] hover:bg-[#ffca28] text-[#1a1a2e] p-0"
-              >
-                <Pause className="w-5 h-5" />
-              </Button>
+            <div className="w-full flex justify-center mt-6">
               <Button
                 onClick={handleSkip}
                 className="h-12 px-6 rounded-full bg-[#ffc107] hover:bg-[#ffca28] text-[#1a1a2e] font-display font-bold"
