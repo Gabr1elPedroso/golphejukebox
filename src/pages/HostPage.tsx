@@ -373,6 +373,7 @@ const HostPage = () => {
           </div>
         )}
       </div>
+      </div>
     </div>
   );
 };
