@@ -260,7 +260,18 @@ const HostPage = () => {
   }
 
   return (
-    <div className="min-h-screen gradient-primary flex flex-col lg:flex-row relative">
+    <div className="min-h-screen gradient-primary flex flex-col relative">
+      {/* Header / Brand Banner */}
+      <div className="w-full flex items-center gap-3 px-6 py-3 bg-foreground/5 backdrop-blur-sm border-b border-primary-foreground/10">
+        <img
+          src="https://ujoeexmkvbkoetaspazn.supabase.co/storage/v1/object/public/asset//mascote.png"
+          alt="Golphe Mascote"
+          className="w-10 h-10 object-contain"
+        />
+        <h1 className="text-xl font-display font-bold text-primary-foreground">Golphe JukeBox</h1>
+      </div>
+
+      <div className="flex-1 flex flex-col lg:flex-row">
       {/* Autoplay activation overlay */}
       {needsActivation && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
@@ -361,6 +372,7 @@ const HostPage = () => {
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );
