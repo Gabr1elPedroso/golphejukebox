@@ -70,11 +70,15 @@ const GuestPage = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-10 gradient-primary px-4 py-3 shadow-lg">
+      <header className="sticky top-0 z-10 px-4 py-3 shadow-lg" style={{ backgroundColor: '#004a99' }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Music className="w-5 h-5 text-secondary" />
-            <span className="font-display font-bold text-primary-foreground text-sm">GOLPHE JUKEBOX</span>
+            <img
+              src="https://ujoeexmkvbkoetaspazn.supabase.co/storage/v1/object/public/asset//mascote.png"
+              alt="Golphe Mascote"
+              className="w-8 h-8 object-contain"
+            />
+            <span className="font-display font-bold text-white text-sm">GOLPHE JUKEBOX</span>
           </div>
           <button
             onClick={() => {
