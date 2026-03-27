@@ -226,13 +226,11 @@ const HostPage = () => {
       <div className="min-h-screen flex flex-col items-center justify-center gradient-primary">
         <div className="text-center space-y-8 animate-slide-up">
           <div className="space-y-4">
-            <div className="w-24 h-24 rounded-3xl bg-secondary/20 flex items-center justify-center mx-auto overflow-hidden">
-              <img
-                src="https://ujoeexmkvbkoetaspazn.supabase.co/storage/v1/object/public/asset//mascote.png"
-                alt="Golphe Mascote"
-                className="w-20 h-20 object-contain"
-              />
-            </div>
+            <img
+              src="https://ujoeexmkvbkoetaspazn.supabase.co/storage/v1/object/public/asset//mascote.png"
+              alt="Golphe Mascote"
+              className="w-32 h-32 object-contain mx-auto"
+            />
             <h1 className="text-5xl font-display font-bold text-primary-foreground">
               Golphe JukeBox
             </h1>
