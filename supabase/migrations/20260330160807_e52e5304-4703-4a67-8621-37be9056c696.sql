@@ -1,0 +1,1 @@
+ALTER TABLE public.queue ADD COLUMN ip_address TEXT;
