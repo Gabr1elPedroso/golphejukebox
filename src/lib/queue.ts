@@ -46,7 +46,7 @@ export async function hasDevicePendingSong(): Promise<boolean> {
   const { data, error } = await supabase
     .from('queue')
     .select('id')
-    .eq('session_id' as any, sessionId)
+    .eq('session_id', sessionId)
     .limit(1);
 
   if (error) throw error;
