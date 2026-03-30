@@ -21,6 +21,7 @@ export type Database = {
           created_at: string
           id: string
           requested_by: string
+          session_id: string | null
           spotify_track_uri: string
           title: string
         }
@@ -30,6 +31,7 @@ export type Database = {
           created_at?: string
           id?: string
           requested_by: string
+          session_id?: string | null
           spotify_track_uri: string
           title: string
         }
@@ -39,6 +41,7 @@ export type Database = {
           created_at?: string
           id?: string
           requested_by?: string
+          session_id?: string | null
           spotify_track_uri?: string
           title?: string
         }

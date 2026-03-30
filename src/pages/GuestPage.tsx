@@ -3,7 +3,7 @@ import { Search, Music, Plus, Check, AlertCircle, ListMusic } from "lucide-react
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { searchTracks, SpotifyTrack } from "@/lib/spotify";
-import { addToQueue, hasUserPendingSong } from "@/lib/queue";
+import { addToQueue, hasDevicePendingSong } from "@/lib/queue";
 import { toast } from "sonner";
 import NameEntry from "@/components/guest/NameEntry";
 import QueueList from "@/components/guest/QueueList";
@@ -40,7 +40,7 @@ const GuestPage = () => {
     const name = localStorage.getItem("golphe_username") || userName;
     setAddingUri(track.uri);
     try {
-      if (await hasUserPendingSong(name)) {
+      if (await hasDevicePendingSong()) {
         toast.error("Você já tem uma música na fila! Aguarde ela tocar.");
         return;
       }
