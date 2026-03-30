@@ -3,7 +3,7 @@ import { Search, Music, Plus, Check, AlertCircle, ListMusic } from "lucide-react
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { searchTracks, SpotifyTrack } from "@/lib/spotify";
-import { addToQueue, hasDevicePendingSong } from "@/lib/queue";
+import { addToQueue } from "@/lib/queue";
 import { toast } from "sonner";
 import NameEntry from "@/components/guest/NameEntry";
 import QueueList from "@/components/guest/QueueList";
@@ -40,10 +40,6 @@ const GuestPage = () => {
     const name = localStorage.getItem("golphe_username") || userName;
     setAddingUri(track.uri);
     try {
-      if (await hasDevicePendingSong()) {
-        toast.error("Você já tem uma música na fila! Aguarde ela tocar.");
-        return;
-      }
       await addToQueue({
         spotify_track_uri: track.uri,
         title: track.title,
@@ -54,8 +50,12 @@ const GuestPage = () => {
       setAddedUri(track.uri);
       toast.success("Música adicionada à fila!");
       setTimeout(() => setAddedUri(null), 3000);
-    } catch {
-      toast.error("Erro ao adicionar música à fila");
+    } catch (err: any) {
+      if (err?.message === 'IP_ALREADY_IN_QUEUE') {
+        toast.error("Você já tem uma música na fila! Aguarde ela tocar.");
+      } else {
+        toast.error("Erro ao adicionar música à fila");
+      }
     } finally {
       setAddingUri(null);
     }
