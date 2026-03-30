@@ -190,7 +190,7 @@ const HostPage = () => {
   const handleSkip = async () => {
     const track = currentTrackRef.current;
     if (track) {
-      await removeFromQueue(track.id);
+      await removeFromQueue(track.id, accessTokenRef.current!);
     }
 
     const freshQueue = await getQueue();
