@@ -27,8 +27,14 @@ export async function addToQueue(track: {
   requested_by: string;
 }) {
   const session_id = getSessionId();
-  const { error } = await supabase.from('queue').insert({ ...track, session_id });
+  const { data, error } = await supabase.functions.invoke('queue-add', {
+    body: { ...track, session_id },
+  });
   if (error) throw error;
+  if (data?.error === 'IP_ALREADY_IN_QUEUE') {
+    throw new Error('IP_ALREADY_IN_QUEUE');
+  }
+  if (data?.error) throw new Error(data.error);
 }
 
 export async function getQueue(): Promise<QueueItem[]> {
