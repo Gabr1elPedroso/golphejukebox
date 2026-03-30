@@ -27,7 +27,7 @@ export async function addToQueue(track: {
   requested_by: string;
 }) {
   const session_id = getSessionId();
-  const { error } = await supabase.from('queue').insert({ ...track, session_id } as Record<string, unknown>);
+  const { error } = await supabase.from('queue').insert({ ...track, session_id });
   if (error) throw error;
 }
 
