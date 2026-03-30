@@ -42,13 +42,9 @@ export async function hasUserPendingSong(userName: string): Promise<boolean> {
   return (data?.length || 0) > 0;
 }
 
-export async function removeFromQueue(id: string, spotifyAccessToken: string) {
-  const { data, error } = await supabase.functions.invoke('queue-remove', {
-    body: { id, spotify_access_token: spotifyAccessToken },
-  });
-
+export async function removeFromQueue(id: string) {
+  const { error } = await supabase.from('queue').delete().eq('id', id);
   if (error) throw error;
-  if (data?.error) throw new Error(data.error);
 }
 
 export function subscribeToQueue(callback: (queue: QueueItem[]) => void) {

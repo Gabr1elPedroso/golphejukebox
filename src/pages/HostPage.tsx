@@ -163,7 +163,7 @@ const HostPage = () => {
     const track = currentTrackRef.current;
     if (track) {
       console.log("Track ended, removing from queue:", track.title);
-      await removeFromQueue(track.id, accessTokenRef.current!);
+      await removeFromQueue(track.id);
     }
     setIsPlaying(false);
     playingUriRef.current = null;
@@ -190,7 +190,7 @@ const HostPage = () => {
   const handleSkip = async () => {
     const track = currentTrackRef.current;
     if (track) {
-      await removeFromQueue(track.id, accessTokenRef.current!);
+      await removeFromQueue(track.id);
     }
 
     const freshQueue = await getQueue();
