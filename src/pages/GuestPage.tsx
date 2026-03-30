@@ -3,7 +3,7 @@ import { Search, Music, Plus, Check, AlertCircle, ListMusic } from "lucide-react
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { searchTracks, SpotifyTrack } from "@/lib/spotify";
-import { addToQueue, hasDevicePendingSong } from "@/lib/queue";
+import { addToQueue } from "@/lib/queue";
 import { toast } from "sonner";
 import NameEntry from "@/components/guest/NameEntry";
 import QueueList from "@/components/guest/QueueList";
