@@ -40,7 +40,7 @@ const GuestPage = () => {
     const name = localStorage.getItem("golphe_username") || userName;
     setAddingUri(track.uri);
     try {
-      if (await hasUserPendingSong(name)) {
+      if (await hasDevicePendingSong()) {
         toast.error("Você já tem uma música na fila! Aguarde ela tocar.");
         return;
       }
