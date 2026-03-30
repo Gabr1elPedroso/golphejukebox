@@ -10,6 +10,15 @@ export interface QueueItem {
   created_at: string;
 }
 
+export function getSessionId(): string {
+  let sessionId = localStorage.getItem("golphe_session_id");
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    localStorage.setItem("golphe_session_id", sessionId);
+  }
+  return sessionId;
+}
+
 export async function addToQueue(track: {
   spotify_track_uri: string;
   title: string;
@@ -17,7 +26,8 @@ export async function addToQueue(track: {
   album_cover_url: string;
   requested_by: string;
 }) {
-  const { error } = await supabase.from('queue').insert(track);
+  const session_id = getSessionId();
+  const { error } = await supabase.from('queue').insert({ ...track, session_id } as any);
   if (error) throw error;
 }
 
@@ -31,11 +41,12 @@ export async function getQueue(): Promise<QueueItem[]> {
   return (data || []) as QueueItem[];
 }
 
-export async function hasUserPendingSong(userName: string): Promise<boolean> {
+export async function hasDevicePendingSong(): Promise<boolean> {
+  const sessionId = getSessionId();
   const { data, error } = await supabase
     .from('queue')
     .select('id')
-    .eq('requested_by', userName)
+    .eq('session_id' as any, sessionId)
     .limit(1);
 
   if (error) throw error;
