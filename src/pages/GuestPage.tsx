@@ -54,7 +54,7 @@ const GuestPage = () => {
       if (err?.message === 'IP_ALREADY_IN_QUEUE') {
         toast.error("Erro ao adicionar música: já há uma faixa na fila.");
       } else {
-        toast.error("Erro ao adicionar música à fila");
+        toast.error("Erro ao adicionar música: já há uma faixa na fila.");
       }
     } finally {
       setAddingUri(null);
