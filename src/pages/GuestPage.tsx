@@ -52,7 +52,7 @@ const GuestPage = () => {
       setTimeout(() => setAddedUri(null), 3000);
     } catch (err: any) {
       if (err?.message === 'IP_ALREADY_IN_QUEUE') {
-        toast.error("Você já tem uma música na fila! Aguarde ela tocar.");
+        toast.error("Erro ao adicionar música: já há uma faixa na fila.");
       } else {
         toast.error("Erro ao adicionar música à fila");
       }
