@@ -124,6 +124,10 @@ const HostPage = () => {
     const did = deviceIdRef.current;
     const token = accessTokenRef.current;
     if (!did || !token) return;
+    if (playbackBlockedRef.current || queueRef.current.length === 0) {
+      console.warn("Playback blocked: empty queue and no active track.");
+      return;
+    }
 
     const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${did}`, {
       method: "PUT",
@@ -161,6 +165,7 @@ const HostPage = () => {
   const playNext = useCallback(async () => {
     const q = queueRef.current;
     if (q.length === 0) {
+      playbackBlockedRef.current = true;
       await pausePlayback();
       setCurrentTrack(null);
       setIsPlaying(false);
@@ -168,6 +173,7 @@ const HostPage = () => {
       return;
     }
 
+    playbackBlockedRef.current = false;
     const next = q[0];
     setCurrentTrack(next);
     setIsPlaying(true);
@@ -181,6 +187,8 @@ const HostPage = () => {
   }, [playTrack, pausePlayback]);
 
   const handleTrackEnded = useCallback(async () => {
+    if (endingTrackRef.current) return;
+    endingTrackRef.current = true;
     const track = currentTrackRef.current;
     if (track) {
       console.log("Track ended, removing from queue:", track.title);
@@ -188,8 +196,21 @@ const HostPage = () => {
     }
     setIsPlaying(false);
     playingUriRef.current = null;
-    setTimeout(() => playNext(), 500);
-  }, [playNext]);
+    const freshQueue = await getQueue();
+    queueRef.current = freshQueue;
+
+    if (freshQueue.length === 0) {
+      playbackBlockedRef.current = true;
+      await pausePlayback();
+      setCurrentTrack(null);
+      endingTrackRef.current = false;
+      return;
+    }
+
+    playbackBlockedRef.current = false;
+    endingTrackRef.current = false;
+    setTimeout(() => playNext(), 250);
+  }, [playNext, pausePlayback]);
 
   // Auto-play when queue updates and nothing is playing
   useEffect(() => {
