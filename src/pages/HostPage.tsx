@@ -160,6 +160,8 @@ const HostPage = () => {
 
     setNeedsActivation(false);
     playingUriRef.current = uri;
+    lastPlayerPositionRef.current = 0;
+    lastPlayerDurationRef.current = 0;
   }, []);
 
   const pausePlayback = useCallback(async () => {
@@ -180,6 +182,8 @@ const HostPage = () => {
       setCurrentTrack(null);
       setIsPlaying(false);
       playingUriRef.current = null;
+      lastPlayerPositionRef.current = 0;
+      lastPlayerDurationRef.current = 0;
       return;
     }
 
@@ -206,6 +210,8 @@ const HostPage = () => {
     }
     setIsPlaying(false);
     playingUriRef.current = null;
+    lastPlayerPositionRef.current = 0;
+    lastPlayerDurationRef.current = 0;
     const freshQueue = await getQueue();
     queueRef.current = freshQueue;
 
@@ -213,6 +219,8 @@ const HostPage = () => {
       playbackBlockedRef.current = true;
       await pausePlayback();
       setCurrentTrack(null);
+      lastPlayerPositionRef.current = 0;
+      lastPlayerDurationRef.current = 0;
       endingTrackRef.current = false;
       return;
     }
@@ -260,6 +268,8 @@ const HostPage = () => {
       setCurrentTrack(null);
       setIsPlaying(false);
       playingUriRef.current = null;
+      lastPlayerPositionRef.current = 0;
+      lastPlayerDurationRef.current = 0;
     }
   };
 
