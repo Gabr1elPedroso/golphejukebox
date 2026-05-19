@@ -26,6 +26,8 @@ const HostPage = () => {
   const playingUriRef = useRef<string | null>(null);
   const deviceIdRef = useRef<string | null>(null);
   const accessTokenRef = useRef<string | null>(null);
+  const endingTrackRef = useRef(false);
+  const playbackBlockedRef = useRef(false);
 
   // Keep refs in sync
   useEffect(() => { queueRef.current = queue; }, [queue]);
@@ -90,14 +92,16 @@ const HostPage = () => {
         if (!state) return;
         const currentUri = state.track_window?.current_track?.uri;
         const { paused, position, duration } = state;
+        const activeTrack = currentTrackRef.current;
+        const wasPlaying = playingUriRef.current;
 
-        if (paused && currentTrackRef.current) {
-          const wasPlaying = playingUriRef.current;
-          if (
-            (position === 0 && wasPlaying && currentUri !== wasPlaying) ||
-            (position === 0 && wasPlaying === currentUri && duration > 0)
-          ) {
-            handleTrackEnded();
+        if (activeTrack && wasPlaying && !endingTrackRef.current) {
+          const pausedAtStart = paused === true && position === 0;
+          const reachedDuration = duration > 0 && position >= Math.max(duration - 750, 0);
+          const trackResetOrChanged = pausedAtStart && (!currentUri || currentUri !== wasPlaying || currentUri === wasPlaying);
+
+          if (reachedDuration || trackResetOrChanged) {
+            void handleTrackEnded();
           }
         }
       });
