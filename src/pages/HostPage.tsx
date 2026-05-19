@@ -26,6 +26,10 @@ const HostPage = () => {
   const playingUriRef = useRef<string | null>(null);
   const deviceIdRef = useRef<string | null>(null);
   const accessTokenRef = useRef<string | null>(null);
+  const endingTrackRef = useRef(false);
+  const playbackBlockedRef = useRef(false);
+  const lastPlayerPositionRef = useRef(0);
+  const lastPlayerDurationRef = useRef(0);
 
   // Keep refs in sync
   useEffect(() => { queueRef.current = queue; }, [queue]);
@@ -90,15 +94,25 @@ const HostPage = () => {
         if (!state) return;
         const currentUri = state.track_window?.current_track?.uri;
         const { paused, position, duration } = state;
+        const activeTrack = currentTrackRef.current;
+        const wasPlaying = playingUriRef.current;
 
-        if (paused && currentTrackRef.current) {
-          const wasPlaying = playingUriRef.current;
-          if (
-            (position === 0 && wasPlaying && currentUri !== wasPlaying) ||
-            (position === 0 && wasPlaying === currentUri && duration > 0)
-          ) {
-            handleTrackEnded();
+        if (activeTrack && wasPlaying && !endingTrackRef.current) {
+          const pausedAtStart = paused === true && position === 0;
+          const previousPosition = lastPlayerPositionRef.current;
+          const previousDuration = lastPlayerDurationRef.current || duration;
+          const reachedDuration = duration > 0 && position >= Math.max(duration - 750, 0);
+          const resetAfterPlaying = pausedAtStart && previousDuration > 0 && previousPosition >= Math.max(previousDuration - 1500, 0);
+          const changedAfterPlaying = pausedAtStart && previousPosition > 1000 && currentUri && currentUri !== wasPlaying;
+
+          if (reachedDuration || resetAfterPlaying || changedAfterPlaying) {
+            void handleTrackEnded();
           }
+        }
+
+        if (currentUri === wasPlaying && position > 0) {
+          lastPlayerPositionRef.current = position;
+          lastPlayerDurationRef.current = duration;
         }
       });
 
@@ -120,6 +134,10 @@ const HostPage = () => {
     const did = deviceIdRef.current;
     const token = accessTokenRef.current;
     if (!did || !token) return;
+    if (playbackBlockedRef.current || queueRef.current.length === 0) {
+      console.warn("Playback blocked: empty queue and no active track.");
+      return;
+    }
 
     const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${did}`, {
       method: "PUT",
@@ -142,6 +160,8 @@ const HostPage = () => {
 
     setNeedsActivation(false);
     playingUriRef.current = uri;
+    lastPlayerPositionRef.current = 0;
+    lastPlayerDurationRef.current = 0;
   }, []);
 
   const pausePlayback = useCallback(async () => {
@@ -157,13 +177,17 @@ const HostPage = () => {
   const playNext = useCallback(async () => {
     const q = queueRef.current;
     if (q.length === 0) {
+      playbackBlockedRef.current = true;
       await pausePlayback();
       setCurrentTrack(null);
       setIsPlaying(false);
       playingUriRef.current = null;
+      lastPlayerPositionRef.current = 0;
+      lastPlayerDurationRef.current = 0;
       return;
     }
 
+    playbackBlockedRef.current = false;
     const next = q[0];
     setCurrentTrack(next);
     setIsPlaying(true);
@@ -177,6 +201,8 @@ const HostPage = () => {
   }, [playTrack, pausePlayback]);
 
   const handleTrackEnded = useCallback(async () => {
+    if (endingTrackRef.current) return;
+    endingTrackRef.current = true;
     const track = currentTrackRef.current;
     if (track) {
       console.log("Track ended, removing from queue:", track.title);
@@ -184,12 +210,35 @@ const HostPage = () => {
     }
     setIsPlaying(false);
     playingUriRef.current = null;
-    setTimeout(() => playNext(), 500);
-  }, [playNext]);
+    lastPlayerPositionRef.current = 0;
+    lastPlayerDurationRef.current = 0;
+    const freshQueue = await getQueue();
+    queueRef.current = freshQueue;
+
+    if (freshQueue.length === 0) {
+      playbackBlockedRef.current = true;
+      await pausePlayback();
+      setCurrentTrack(null);
+      lastPlayerPositionRef.current = 0;
+      lastPlayerDurationRef.current = 0;
+      endingTrackRef.current = false;
+      return;
+    }
+
+    playbackBlockedRef.current = false;
+    endingTrackRef.current = false;
+    setTimeout(() => playNext(), 250);
+  }, [playNext, pausePlayback]);
 
   // Auto-play when queue updates and nothing is playing
   useEffect(() => {
+    if (queue.length === 0 && !currentTrackRef.current) {
+      playbackBlockedRef.current = true;
+      return;
+    }
+
     if (queue.length > 0 && !isPlayingRef.current && deviceId && accessToken) {
+      playbackBlockedRef.current = false;
       playNext();
     }
   }, [queue, deviceId, accessToken, playNext]);
@@ -203,6 +252,7 @@ const HostPage = () => {
     const freshQueue = await getQueue();
 
     if (freshQueue.length > 0) {
+      playbackBlockedRef.current = false;
       const next = freshQueue[0];
       setCurrentTrack(next);
       setIsPlaying(true);
@@ -213,16 +263,20 @@ const HostPage = () => {
         setIsPlaying(false);
       }
     } else {
+      playbackBlockedRef.current = true;
       await pausePlayback();
       setCurrentTrack(null);
       setIsPlaying(false);
       playingUriRef.current = null;
+      lastPlayerPositionRef.current = 0;
+      lastPlayerDurationRef.current = 0;
     }
   };
 
   const handleActivateAudio = async () => {
     setNeedsActivation(false);
     if (queueRef.current.length > 0) {
+      playbackBlockedRef.current = false;
       await playNext();
     }
   };
