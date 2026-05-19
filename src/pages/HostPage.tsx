@@ -78,6 +78,12 @@ const HostPage = () => {
         console.log("Spotify Player ready, device_id:", device_id);
         setDeviceId(device_id);
         setLoading(false);
+        // Ensure repeat mode is OFF so tracks don't loop when queue is empty
+        const token = accessTokenRef.current || accessToken;
+        fetch(`https://api.spotify.com/v1/me/player/repeat?state=off&device_id=${device_id}`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch((e) => console.error("Failed to disable repeat:", e));
       });
 
       p.addListener("player_state_changed", (state: any) => {
@@ -138,9 +144,20 @@ const HostPage = () => {
     playingUriRef.current = uri;
   }, []);
 
+  const pausePlayback = useCallback(async () => {
+    const did = deviceIdRef.current;
+    const token = accessTokenRef.current;
+    if (!did || !token) return;
+    await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${did}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }, []);
+
   const playNext = useCallback(async () => {
     const q = queueRef.current;
     if (q.length === 0) {
+      await pausePlayback();
       setCurrentTrack(null);
       setIsPlaying(false);
       playingUriRef.current = null;
@@ -157,7 +174,7 @@ const HostPage = () => {
       console.error("Error playing track:", err);
       setIsPlaying(false);
     }
-  }, [playTrack]);
+  }, [playTrack, pausePlayback]);
 
   const handleTrackEnded = useCallback(async () => {
     const track = currentTrackRef.current;
@@ -176,16 +193,6 @@ const HostPage = () => {
       playNext();
     }
   }, [queue, deviceId, accessToken, playNext]);
-
-  const pausePlayback = useCallback(async () => {
-    const did = deviceIdRef.current;
-    const token = accessTokenRef.current;
-    if (!did || !token) return;
-    await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${did}`, {
-      method: "PUT",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-  }, []);
 
   const handleSkip = async () => {
     const track = currentTrackRef.current;
