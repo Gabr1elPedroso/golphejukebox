@@ -214,7 +214,13 @@ const HostPage = () => {
 
   // Auto-play when queue updates and nothing is playing
   useEffect(() => {
+    if (queue.length === 0 && !currentTrackRef.current) {
+      playbackBlockedRef.current = true;
+      return;
+    }
+
     if (queue.length > 0 && !isPlayingRef.current && deviceId && accessToken) {
+      playbackBlockedRef.current = false;
       playNext();
     }
   }, [queue, deviceId, accessToken, playNext]);
@@ -228,6 +234,7 @@ const HostPage = () => {
     const freshQueue = await getQueue();
 
     if (freshQueue.length > 0) {
+      playbackBlockedRef.current = false;
       const next = freshQueue[0];
       setCurrentTrack(next);
       setIsPlaying(true);
@@ -238,6 +245,7 @@ const HostPage = () => {
         setIsPlaying(false);
       }
     } else {
+      playbackBlockedRef.current = true;
       await pausePlayback();
       setCurrentTrack(null);
       setIsPlaying(false);
@@ -248,6 +256,7 @@ const HostPage = () => {
   const handleActivateAudio = async () => {
     setNeedsActivation(false);
     if (queueRef.current.length > 0) {
+      playbackBlockedRef.current = false;
       await playNext();
     }
   };
