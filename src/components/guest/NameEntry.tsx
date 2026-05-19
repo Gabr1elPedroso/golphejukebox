@@ -24,6 +24,11 @@ const NameEntry = ({ onNameSet }: NameEntryProps) => {
     <div className="min-h-screen flex flex-col items-center justify-center p-6 gradient-primary">
       <div className="w-full max-w-sm space-y-8 animate-slide-up">
         <div className="text-center space-y-2">
+          <img
+            src="https://ujoeexmkvbkoetaspazn.supabase.co/storage/v1/object/public/asset//mascote.png"
+            alt="Golphe Mascote"
+            className="w-32 h-32 mx-auto object-contain mb-2"
+          />
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 mb-4">
             <Music className="w-5 h-5 text-secondary" />
             <span className="text-secondary font-display font-bold text-sm">GOLPHE JUKEBOX</span>
