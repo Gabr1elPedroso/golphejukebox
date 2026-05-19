@@ -144,6 +144,16 @@ const HostPage = () => {
     playingUriRef.current = uri;
   }, []);
 
+  const pausePlayback = useCallback(async () => {
+    const did = deviceIdRef.current;
+    const token = accessTokenRef.current;
+    if (!did || !token) return;
+    await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${did}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }, []);
+
   const playNext = useCallback(async () => {
     const q = queueRef.current;
     if (q.length === 0) {
@@ -183,16 +193,6 @@ const HostPage = () => {
       playNext();
     }
   }, [queue, deviceId, accessToken, playNext]);
-
-  const pausePlayback = useCallback(async () => {
-    const did = deviceIdRef.current;
-    const token = accessTokenRef.current;
-    if (!did || !token) return;
-    await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${did}`, {
-      method: "PUT",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-  }, []);
 
   const handleSkip = async () => {
     const track = currentTrackRef.current;
