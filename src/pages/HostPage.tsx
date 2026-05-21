@@ -374,6 +374,15 @@ const HostPage = () => {
                 Aguardando pedidos dos convidados...
               </p>
             </div>
+            {queue.length > 0 && (
+              <Button
+                onClick={playNext}
+                className="h-12 px-6 rounded-full bg-secondary hover:bg-secondary/90 text-secondary-foreground font-display font-bold"
+              >
+                <Play className="w-5 h-5 mr-2" />
+                Tocar próxima
+              </Button>
+            )}
           </div>
         )}
       </div>
