@@ -20,7 +20,6 @@ const HostPage = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [needsActivation, setNeedsActivation] = useState(false);
   const [loading, setLoading] = useState(true);
-  const isPlayingRef = useRef(false);
   const currentTrackRef = useRef<QueueItem | null>(null);
   const queueRef = useRef<QueueItem[]>([]);
   const playingUriRef = useRef<string | null>(null);
@@ -38,7 +37,6 @@ const HostPage = () => {
   // Keep refs in sync
   useEffect(() => { queueRef.current = queue; }, [queue]);
   useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
-  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
   useEffect(() => { deviceIdRef.current = deviceId; }, [deviceId]);
   useEffect(() => { accessTokenRef.current = accessToken; }, [accessToken]);
 
@@ -206,7 +204,7 @@ const HostPage = () => {
       console.error("Error playing track:", err);
       setIsPlaying(false);
     }
-  }, [playTrack, pausePlayback]);
+  }, [playTrack]);
 
   const handleTrackEnded = useCallback(async () => {
     if (endingTrackRef.current) return;
@@ -229,15 +227,7 @@ const HostPage = () => {
 
     endingTrackRef.current = false;
     setTimeout(() => playNext(), 250);
-  }, [playNext, pausePlayback]);
-
-  // Auto-play when queue updates and nothing is playing
-  useEffect(() => {
-    if (queue.length === 0) return;
-    if (!isPlayingRef.current && deviceId && accessToken) {
-      playNext();
-    }
-  }, [queue, deviceId, accessToken, playNext]);
+  }, [playNext]);
 
   const handleSkip = async () => {
     const track = currentTrackRef.current;
