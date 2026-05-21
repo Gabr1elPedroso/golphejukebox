@@ -20,19 +20,16 @@ const HostPage = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [needsActivation, setNeedsActivation] = useState(false);
   const [loading, setLoading] = useState(true);
-  const isPlayingRef = useRef(false);
   const currentTrackRef = useRef<QueueItem | null>(null);
   const queueRef = useRef<QueueItem[]>([]);
   const playingUriRef = useRef<string | null>(null);
   const deviceIdRef = useRef<string | null>(null);
   const accessTokenRef = useRef<string | null>(null);
   const endingTrackRef = useRef(false);
-  const endTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep refs in sync
   useEffect(() => { queueRef.current = queue; }, [queue]);
   useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
-  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
   useEffect(() => { deviceIdRef.current = deviceId; }, [deviceId]);
   useEffect(() => { accessTokenRef.current = accessToken; }, [accessToken]);
 
@@ -99,8 +96,7 @@ const HostPage = () => {
 
       p.addListener("player_state_changed", (state: any) => {
         if (!state) return;
-        // Detection is handled via a duration-based setTimeout scheduled in playTrack.
-        // We avoid acting on player_state_changed to prevent false positives at track start.
+        setIsPlaying(!state.paused);
       });
 
       p.connect();
@@ -143,27 +139,6 @@ const HostPage = () => {
 
     setNeedsActivation(false);
     playingUriRef.current = uri;
-
-    // Schedule a track-end check based on the track's actual duration.
-    if (endTimerRef.current) {
-      clearTimeout(endTimerRef.current);
-      endTimerRef.current = null;
-    }
-    try {
-      const info = await fetch(`https://api.spotify.com/v1/tracks/${uri.split(":").pop()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((r) => r.json());
-      const durationMs = info?.duration_ms;
-      if (typeof durationMs === "number" && durationMs > 0) {
-        endTimerRef.current = setTimeout(() => {
-          if (playingUriRef.current === uri && !endingTrackRef.current) {
-            void handleTrackEnded();
-          }
-        }, durationMs + 500);
-      }
-    } catch (e) {
-      console.error("Failed to fetch track duration:", e);
-    }
   }, []);
 
   const pausePlayback = useCallback(async () => {
@@ -182,10 +157,6 @@ const HostPage = () => {
       setCurrentTrack(null);
       setIsPlaying(false);
       playingUriRef.current = null;
-      if (endTimerRef.current) {
-        clearTimeout(endTimerRef.current);
-        endTimerRef.current = null;
-      }
       return;
     }
 
@@ -199,15 +170,11 @@ const HostPage = () => {
       console.error("Error playing track:", err);
       setIsPlaying(false);
     }
-  }, [playTrack, pausePlayback]);
+  }, [playTrack]);
 
   const handleTrackEnded = useCallback(async () => {
     if (endingTrackRef.current) return;
     endingTrackRef.current = true;
-    if (endTimerRef.current) {
-      clearTimeout(endTimerRef.current);
-      endTimerRef.current = null;
-    }
     const track = currentTrackRef.current;
     if (track) {
       console.log("Track ended, removing from queue:", track.title);
@@ -226,15 +193,7 @@ const HostPage = () => {
 
     endingTrackRef.current = false;
     setTimeout(() => playNext(), 250);
-  }, [playNext, pausePlayback]);
-
-  // Auto-play when queue updates and nothing is playing
-  useEffect(() => {
-    if (queue.length === 0) return;
-    if (!isPlayingRef.current && deviceId && accessToken) {
-      playNext();
-    }
-  }, [queue, deviceId, accessToken, playNext]);
+  }, [playNext]);
 
   const handleSkip = async () => {
     const track = currentTrackRef.current;
@@ -259,10 +218,6 @@ const HostPage = () => {
       setCurrentTrack(null);
       setIsPlaying(false);
       playingUriRef.current = null;
-      if (endTimerRef.current) {
-        clearTimeout(endTimerRef.current);
-        endTimerRef.current = null;
-      }
     }
   };
 
@@ -385,6 +340,15 @@ const HostPage = () => {
                 Aguardando pedidos dos convidados...
               </p>
             </div>
+            {queue.length > 0 && (
+              <Button
+                onClick={playNext}
+                className="h-12 px-6 rounded-full bg-secondary hover:bg-secondary/90 text-secondary-foreground font-display font-bold"
+              >
+                <Play className="w-5 h-5 mr-2" />
+                Tocar próxima
+              </Button>
+            )}
           </div>
         )}
       </div>
