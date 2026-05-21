@@ -262,10 +262,6 @@ const HostPage = () => {
       setCurrentTrack(null);
       setIsPlaying(false);
       playingUriRef.current = null;
-      if (endTimerRef.current) {
-        clearTimeout(endTimerRef.current);
-        endTimerRef.current = null;
-      }
     }
   };
 
