@@ -80,8 +80,17 @@ const HostPage = () => {
         console.log("Spotify Player ready, device_id:", device_id);
         setDeviceId(device_id);
         setLoading(false);
-        // Ensure repeat mode is OFF so tracks don't loop when queue is empty
         const token = accessTokenRef.current || accessToken;
+        // Force transfer playback to THIS device so audio plays on the current browser
+        fetch(`https://api.spotify.com/v1/me/player`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ device_ids: [device_id], play: false }),
+        }).catch((e) => console.error("Failed to transfer playback:", e));
+        // Ensure repeat mode is OFF so tracks don't loop when queue is empty
         fetch(`https://api.spotify.com/v1/me/player/repeat?state=off&device_id=${device_id}`, {
           method: "PUT",
           headers: { Authorization: `Bearer ${token}` },
