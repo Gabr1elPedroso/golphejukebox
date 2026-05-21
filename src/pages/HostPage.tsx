@@ -26,8 +26,6 @@ const HostPage = () => {
   const deviceIdRef = useRef<string | null>(null);
   const accessTokenRef = useRef<string | null>(null);
   const endingTrackRef = useRef(false);
-  const hasObservedPlaybackRef = useRef(false);
-  const trackStartedAtRef = useRef(0);
 
   // Keep refs in sync
   useEffect(() => { queueRef.current = queue; }, [queue]);
@@ -98,27 +96,7 @@ const HostPage = () => {
 
       p.addListener("player_state_changed", (state: any) => {
         if (!state) return;
-        const activeUri = playingUriRef.current;
-        const spotifyUri = state.track_window?.current_track?.uri || null;
-        const position = typeof state.position === "number" ? state.position : 0;
-
-        if (activeUri && spotifyUri === activeUri && !state.paused && position > 1000) {
-          hasObservedPlaybackRef.current = true;
-          setIsPlaying(true);
-          return;
-        }
-
-        const stoppedAfterPlayback =
-          activeUri &&
-          spotifyUri === activeUri &&
-          state.paused === true &&
-          position === 0 &&
-          hasObservedPlaybackRef.current &&
-          Date.now() - trackStartedAtRef.current > 5000;
-
-        if (stoppedAfterPlayback && !endingTrackRef.current) {
-          void handleTrackEnded();
-        }
+        setIsPlaying(!state.paused);
       });
 
       p.connect();
@@ -161,8 +139,6 @@ const HostPage = () => {
 
     setNeedsActivation(false);
     playingUriRef.current = uri;
-    hasObservedPlaybackRef.current = false;
-    trackStartedAtRef.current = Date.now();
   }, []);
 
   const pausePlayback = useCallback(async () => {
