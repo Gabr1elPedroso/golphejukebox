@@ -27,9 +27,7 @@ const HostPage = () => {
   const deviceIdRef = useRef<string | null>(null);
   const accessTokenRef = useRef<string | null>(null);
   const endingTrackRef = useRef(false);
-  const playbackBlockedRef = useRef(false);
-  const lastPlayerPositionRef = useRef(0);
-  const lastPlayerDurationRef = useRef(0);
+  const endTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep refs in sync
   useEffect(() => { queueRef.current = queue; }, [queue]);
@@ -92,28 +90,8 @@ const HostPage = () => {
 
       p.addListener("player_state_changed", (state: any) => {
         if (!state) return;
-        const currentUri = state.track_window?.current_track?.uri;
-        const { paused, position, duration } = state;
-        const activeTrack = currentTrackRef.current;
-        const wasPlaying = playingUriRef.current;
-
-        if (activeTrack && wasPlaying && !endingTrackRef.current) {
-          const pausedAtStart = paused === true && position === 0;
-          const previousPosition = lastPlayerPositionRef.current;
-          const previousDuration = lastPlayerDurationRef.current || duration;
-          const reachedDuration = duration > 0 && position >= Math.max(duration - 750, 0);
-          const resetAfterPlaying = pausedAtStart && previousDuration > 0 && previousPosition >= Math.max(previousDuration - 1500, 0);
-          const changedAfterPlaying = pausedAtStart && previousPosition > 1000 && currentUri && currentUri !== wasPlaying;
-
-          if (reachedDuration || resetAfterPlaying || changedAfterPlaying) {
-            void handleTrackEnded();
-          }
-        }
-
-        if (currentUri === wasPlaying && position > 0) {
-          lastPlayerPositionRef.current = position;
-          lastPlayerDurationRef.current = duration;
-        }
+        // Detection is handled via a duration-based setTimeout scheduled in playTrack.
+        // We avoid acting on player_state_changed to prevent false positives at track start.
       });
 
       p.connect();
@@ -134,10 +112,6 @@ const HostPage = () => {
     const did = deviceIdRef.current;
     const token = accessTokenRef.current;
     if (!did || !token) return;
-    if (playbackBlockedRef.current || queueRef.current.length === 0) {
-      console.warn("Playback blocked: empty queue and no active track.");
-      return;
-    }
 
     const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${did}`, {
       method: "PUT",
@@ -160,8 +134,27 @@ const HostPage = () => {
 
     setNeedsActivation(false);
     playingUriRef.current = uri;
-    lastPlayerPositionRef.current = 0;
-    lastPlayerDurationRef.current = 0;
+
+    // Schedule a track-end check based on the track's actual duration.
+    if (endTimerRef.current) {
+      clearTimeout(endTimerRef.current);
+      endTimerRef.current = null;
+    }
+    try {
+      const info = await fetch(`https://api.spotify.com/v1/tracks/${uri.split(":").pop()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then((r) => r.json());
+      const durationMs = info?.duration_ms;
+      if (typeof durationMs === "number" && durationMs > 0) {
+        endTimerRef.current = setTimeout(() => {
+          if (playingUriRef.current === uri && !endingTrackRef.current) {
+            void handleTrackEnded();
+          }
+        }, durationMs + 500);
+      }
+    } catch (e) {
+      console.error("Failed to fetch track duration:", e);
+    }
   }, []);
 
   const pausePlayback = useCallback(async () => {
@@ -177,17 +170,16 @@ const HostPage = () => {
   const playNext = useCallback(async () => {
     const q = queueRef.current;
     if (q.length === 0) {
-      playbackBlockedRef.current = true;
-      await pausePlayback();
       setCurrentTrack(null);
       setIsPlaying(false);
       playingUriRef.current = null;
-      lastPlayerPositionRef.current = 0;
-      lastPlayerDurationRef.current = 0;
+      if (endTimerRef.current) {
+        clearTimeout(endTimerRef.current);
+        endTimerRef.current = null;
+      }
       return;
     }
 
-    playbackBlockedRef.current = false;
     const next = q[0];
     setCurrentTrack(next);
     setIsPlaying(true);
@@ -203,6 +195,10 @@ const HostPage = () => {
   const handleTrackEnded = useCallback(async () => {
     if (endingTrackRef.current) return;
     endingTrackRef.current = true;
+    if (endTimerRef.current) {
+      clearTimeout(endTimerRef.current);
+      endTimerRef.current = null;
+    }
     const track = currentTrackRef.current;
     if (track) {
       console.log("Track ended, removing from queue:", track.title);
@@ -210,35 +206,23 @@ const HostPage = () => {
     }
     setIsPlaying(false);
     playingUriRef.current = null;
-    lastPlayerPositionRef.current = 0;
-    lastPlayerDurationRef.current = 0;
     const freshQueue = await getQueue();
     queueRef.current = freshQueue;
 
     if (freshQueue.length === 0) {
-      playbackBlockedRef.current = true;
-      await pausePlayback();
       setCurrentTrack(null);
-      lastPlayerPositionRef.current = 0;
-      lastPlayerDurationRef.current = 0;
       endingTrackRef.current = false;
       return;
     }
 
-    playbackBlockedRef.current = false;
     endingTrackRef.current = false;
     setTimeout(() => playNext(), 250);
   }, [playNext, pausePlayback]);
 
   // Auto-play when queue updates and nothing is playing
   useEffect(() => {
-    if (queue.length === 0 && !currentTrackRef.current) {
-      playbackBlockedRef.current = true;
-      return;
-    }
-
-    if (queue.length > 0 && !isPlayingRef.current && deviceId && accessToken) {
-      playbackBlockedRef.current = false;
+    if (queue.length === 0) return;
+    if (!isPlayingRef.current && deviceId && accessToken) {
       playNext();
     }
   }, [queue, deviceId, accessToken, playNext]);
@@ -252,7 +236,6 @@ const HostPage = () => {
     const freshQueue = await getQueue();
 
     if (freshQueue.length > 0) {
-      playbackBlockedRef.current = false;
       const next = freshQueue[0];
       setCurrentTrack(next);
       setIsPlaying(true);
@@ -263,20 +246,20 @@ const HostPage = () => {
         setIsPlaying(false);
       }
     } else {
-      playbackBlockedRef.current = true;
       await pausePlayback();
       setCurrentTrack(null);
       setIsPlaying(false);
       playingUriRef.current = null;
-      lastPlayerPositionRef.current = 0;
-      lastPlayerDurationRef.current = 0;
+      if (endTimerRef.current) {
+        clearTimeout(endTimerRef.current);
+        endTimerRef.current = null;
+      }
     }
   };
 
   const handleActivateAudio = async () => {
     setNeedsActivation(false);
     if (queueRef.current.length > 0) {
-      playbackBlockedRef.current = false;
       await playNext();
     }
   };
