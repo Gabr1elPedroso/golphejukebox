@@ -173,27 +173,8 @@ const HostPage = () => {
 
     setNeedsActivation(false);
     playingUriRef.current = uri;
-
-    // Schedule a track-end check based on the track's actual duration.
-    if (endTimerRef.current) {
-      clearTimeout(endTimerRef.current);
-      endTimerRef.current = null;
-    }
-    try {
-      const info = await fetch(`https://api.spotify.com/v1/tracks/${uri.split(":").pop()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((r) => r.json());
-      const durationMs = info?.duration_ms;
-      if (typeof durationMs === "number" && durationMs > 0) {
-        endTimerRef.current = setTimeout(() => {
-          if (playingUriRef.current === uri && !endingTrackRef.current) {
-            void handleTrackEnded();
-          }
-        }, durationMs + 500);
-      }
-    } catch (e) {
-      console.error("Failed to fetch track duration:", e);
-    }
+    trackHasPlayedRef.current = false;
+    lastPlayerStateRef.current = { uri, paused: true, position: 0, duration: 0 };
   }, []);
 
   const pausePlayback = useCallback(async () => {
@@ -212,10 +193,6 @@ const HostPage = () => {
       setCurrentTrack(null);
       setIsPlaying(false);
       playingUriRef.current = null;
-      if (endTimerRef.current) {
-        clearTimeout(endTimerRef.current);
-        endTimerRef.current = null;
-      }
       return;
     }
 
@@ -234,10 +211,6 @@ const HostPage = () => {
   const handleTrackEnded = useCallback(async () => {
     if (endingTrackRef.current) return;
     endingTrackRef.current = true;
-    if (endTimerRef.current) {
-      clearTimeout(endTimerRef.current);
-      endTimerRef.current = null;
-    }
     const track = currentTrackRef.current;
     if (track) {
       console.log("Track ended, removing from queue:", track.title);
