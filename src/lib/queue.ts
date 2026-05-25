@@ -25,16 +25,17 @@ export async function addToQueue(track: {
   artist: string;
   album_cover_url: string;
   requested_by: string;
-}) {
+}): Promise<{ count: number }> {
   const session_id = getSessionId();
   const { data, error } = await supabase.functions.invoke('queue-add', {
     body: { ...track, session_id },
   });
   if (error) throw error;
-  if (data?.error === 'IP_ALREADY_IN_QUEUE') {
-    throw new Error('IP_ALREADY_IN_QUEUE');
+  if (data?.error === 'IP_LIMIT_REACHED' || data?.error === 'IP_ALREADY_IN_QUEUE') {
+    throw new Error('IP_LIMIT_REACHED');
   }
   if (data?.error) throw new Error(data.error);
+  return { count: data?.count ?? 1 };
 }
 
 export async function getQueue(): Promise<QueueItem[]> {

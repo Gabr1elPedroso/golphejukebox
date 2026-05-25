@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
 
     if (existing && existing.length >= 3) {
       return new Response(
-        JSON.stringify({ error: "IP_ALREADY_IN_QUEUE" }),
+        JSON.stringify({ error: "IP_LIMIT_REACHED", count: existing.length }),
         { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ success: true, count: (existing?.length || 0) + 1 }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
