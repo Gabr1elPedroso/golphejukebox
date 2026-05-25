@@ -35,8 +35,7 @@ Deno.serve(async (req) => {
     const { data: existing, error: checkError } = await supabase
       .from("queue")
       .select("id")
-      .eq("ip_address", clientIp)
-      .limit(1);
+      .eq("ip_address", clientIp);
 
     if (checkError) {
       return new Response(
@@ -45,7 +44,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (existing && existing.length > 0) {
+    if (existing && existing.length >= 3) {
       return new Response(
         JSON.stringify({ error: "IP_ALREADY_IN_QUEUE" }),
         { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }

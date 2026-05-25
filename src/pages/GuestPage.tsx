@@ -52,9 +52,9 @@ const GuestPage = () => {
       setTimeout(() => setAddedUri(null), 3000);
     } catch (err: any) {
       if (err?.message === 'IP_ALREADY_IN_QUEUE') {
-        toast.error("Erro ao adicionar música: já há uma faixa na fila.");
+        toast.error("Erro ao adicionar música: você atingiu o limite de 3 faixas na fila.");
       } else {
-        toast.error("Erro ao adicionar música: já há uma faixa na fila.");
+        toast.error("Erro ao adicionar música: você atingiu o limite de 3 faixas na fila.");
       }
     } finally {
       setAddingUri(null);
