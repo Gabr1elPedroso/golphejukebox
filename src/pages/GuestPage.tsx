@@ -40,7 +40,7 @@ const GuestPage = () => {
     const name = localStorage.getItem("golphe_username") || userName;
     setAddingUri(track.uri);
     try {
-      await addToQueue({
+      const { count } = await addToQueue({
         spotify_track_uri: track.uri,
         title: track.title,
         artist: track.artist,
@@ -48,13 +48,18 @@ const GuestPage = () => {
         requested_by: name,
       });
       setAddedUri(track.uri);
-      toast.success("Música adicionada à fila!");
+      const remaining = Math.max(0, 3 - count);
+      if (remaining > 0) {
+        toast.success(`Música adicionada! Você ainda pode adicionar mais ${remaining} música${remaining === 1 ? '' : 's'}.`);
+      } else {
+        toast.success("Música adicionada à fila!");
+      }
       setTimeout(() => setAddedUri(null), 3000);
     } catch (err: any) {
-      if (err?.message === 'IP_ALREADY_IN_QUEUE') {
-        toast.error("Erro ao adicionar música: você atingiu o limite de 3 faixas na fila.");
+      if (err?.message === 'IP_LIMIT_REACHED') {
+        toast.error("Erro ao adicionar música: você atingiu o limite máximo de 3 faixas na fila.");
       } else {
-        toast.error("Erro ao adicionar música: você atingiu o limite de 3 faixas na fila.");
+        toast.error("Erro ao adicionar música. Tente novamente.");
       }
     } finally {
       setAddingUri(null);
