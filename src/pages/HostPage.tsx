@@ -26,6 +26,9 @@ const HostPage = () => {
   const deviceIdRef = useRef<string | null>(null);
   const accessTokenRef = useRef<string | null>(null);
   const endingTrackRef = useRef(false);
+  const lastPositionRef = useRef<number>(0);
+  const lastTrackUriRef = useRef<string | null>(null);
+  const manualActionRef = useRef(false);
 
   // Keep refs in sync
   useEffect(() => { queueRef.current = queue; }, [queue]);
@@ -97,6 +100,28 @@ const HostPage = () => {
       p.addListener("player_state_changed", (state: any) => {
         if (!state) return;
         setIsPlaying(!state.paused);
+
+        const currentUri = state.track_window?.current_track?.uri ?? null;
+        const prevUri = lastTrackUriRef.current;
+        const prevPos = lastPositionRef.current;
+
+        // Natural end detection: was playing our track, now paused at position 0
+        // and the SDK reports this same track as current (it loops back to start at end).
+        const expectedUri = playingUriRef.current;
+        const trackJustEnded =
+          expectedUri &&
+          currentUri === expectedUri &&
+          state.paused &&
+          state.position === 0 &&
+          prevPos > 1000 &&
+          !manualActionRef.current;
+
+        lastPositionRef.current = state.position;
+        lastTrackUriRef.current = currentUri;
+
+        if (trackJustEnded) {
+          handleTrackEndedRef.current?.();
+        }
       });
 
       p.connect();
@@ -117,6 +142,9 @@ const HostPage = () => {
     const did = deviceIdRef.current;
     const token = accessTokenRef.current;
     if (!did || !token) return;
+
+    manualActionRef.current = true;
+    setTimeout(() => { manualActionRef.current = false; }, 1500);
 
     const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${did}`, {
       method: "PUT",
@@ -139,6 +167,8 @@ const HostPage = () => {
 
     setNeedsActivation(false);
     playingUriRef.current = uri;
+    lastPositionRef.current = 0;
+    lastTrackUriRef.current = uri;
   }, []);
 
   const pausePlayback = useCallback(async () => {
@@ -194,6 +224,18 @@ const HostPage = () => {
     endingTrackRef.current = false;
     setTimeout(() => playNext(), 250);
   }, [playNext]);
+
+  const handleTrackEndedRef = useRef<() => void>();
+  useEffect(() => { handleTrackEndedRef.current = handleTrackEnded; }, [handleTrackEnded]);
+
+  // Auto-play when queue updates and player is idle
+  useEffect(() => {
+    if (!deviceId) return;
+    if (currentTrack) return;
+    if (queue.length === 0) return;
+    if (needsActivation) return;
+    playNext();
+  }, [queue, currentTrack, deviceId, needsActivation, playNext]);
 
   const handleSkip = async () => {
     const track = currentTrackRef.current;
