@@ -7,16 +7,53 @@ import { addToQueue } from "@/lib/queue";
 import { toast } from "sonner";
 import NameEntry from "@/components/guest/NameEntry";
 import QueueList from "@/components/guest/QueueList";
+import { supabase } from "@/integrations/supabase/client";
+
+const ALLOWED_DOMAIN = "@grupogolphe.com.br";
 
 const GuestPage = () => {
-  const [userName, setUserName] = useState(() => localStorage.getItem("golphe_username") || "");
-  const [isNameSet, setIsNameSet] = useState(() => !!localStorage.getItem("golphe_username"));
+  const [userName, setUserName] = useState("");
+  const [isNameSet, setIsNameSet] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [results, setResults] = useState<SpotifyTrack[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [addingUri, setAddingUri] = useState<string | null>(null);
   const [addedUri, setAddedUri] = useState<string | null>(null);
   const debounceRef = useRef<NodeJS.Timeout>();
+
+  useEffect(() => {
+    const handleSession = async (session: any) => {
+      if (!session?.user) {
+        setIsNameSet(false);
+        setUserName("");
+        setAuthChecked(true);
+        return;
+      }
+      const email = session.user.email || "";
+      if (!email.toLowerCase().endsWith(ALLOWED_DOMAIN)) {
+        await supabase.auth.signOut();
+        localStorage.removeItem("golphe_username");
+        setIsNameSet(false);
+        setUserName("");
+        setAuthChecked(true);
+        toast.error("Acesso negado: utilize seu e-mail corporativo da Grupo Golphe.");
+        return;
+      }
+      const meta = session.user.user_metadata || {};
+      const name = meta.full_name || meta.name || email.split("@")[0];
+      localStorage.setItem("golphe_username", name);
+      setUserName(name);
+      setIsNameSet(true);
+      setAuthChecked(true);
+    };
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      handleSession(session);
+    });
+    supabase.auth.getSession().then(({ data }) => handleSession(data.session));
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   const doSearch = useCallback(async (q: string) => {
     if (q.trim().length < 2) { setResults([]); return; }
@@ -66,8 +103,16 @@ const GuestPage = () => {
     }
   };
 
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center gradient-primary">
+        <div className="w-8 h-8 border-3 border-secondary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   if (!isNameSet) {
-    return <NameEntry onNameSet={(name) => { setUserName(name); setIsNameSet(true); }} />;
+    return <NameEntry />;
   }
 
   const showSearchResults = searchQuery.length >= 2;
@@ -87,9 +132,11 @@ const GuestPage = () => {
           </div>
           <button
             onClick={() => {
-              localStorage.removeItem("golphe_username");
-              setIsNameSet(false);
-              setUserName("");
+              supabase.auth.signOut().then(() => {
+                localStorage.removeItem("golphe_username");
+                setIsNameSet(false);
+                setUserName("");
+              });
             }}
             className="text-xs text-primary-foreground/60 hover:text-primary-foreground/90"
           >
