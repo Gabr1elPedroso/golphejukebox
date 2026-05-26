@@ -13,11 +13,6 @@ declare global {
 }
 
 const HostPage = () => {
-  const isHostAuthed = typeof window !== "undefined" && localStorage.getItem("golphe_host_auth") === "true";
-  if (!isHostAuthed) {
-    return <Navigate to="/" replace />;
-  }
-
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [_refreshToken, setRefreshToken] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
