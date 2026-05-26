@@ -6,6 +6,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import GuestPage from "./pages/GuestPage";
 import HostPage from "./pages/HostPage";
 import NotFound from "./pages/NotFound";
+import { Navigate } from "react-router-dom";
+
+const ProtectedHost = () => {
+  const authed = typeof window !== "undefined" && localStorage.getItem("golphe_host_auth") === "true";
+  return authed ? <HostPage /> : <Navigate to="/" replace />;
+};
 
 const queryClient = new QueryClient();
 
@@ -17,7 +23,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<GuestPage />} />
-          <Route path="/host" element={<HostPage />} />
+          <Route path="/host" element={<ProtectedHost />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
