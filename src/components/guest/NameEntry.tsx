@@ -1,11 +1,20 @@
 import { useState } from "react";
 import { Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { lovable } from "@/integrations/lovable";
+import { useNavigate } from "react-router-dom";
+
+const HOST_EMAIL = "host@grupogolphe.com.br";
+const HOST_PASSWORD = "Jukebox@2026";
 
 const NameEntry = () => {
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [hostLoading, setHostLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -22,6 +31,18 @@ const NameEntry = () => {
     } catch {
       toast.error("Erro ao iniciar login. Tente novamente.");
       setLoading(false);
+    }
+  };
+
+  const handleHostLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setHostLoading(true);
+    if (email.trim().toLowerCase() === HOST_EMAIL && password === HOST_PASSWORD) {
+      localStorage.setItem("golphe_host_auth", "true");
+      navigate("/host");
+    } else {
+      toast.error("Credenciais inválidas.");
+      setHostLoading(false);
     }
   };
 
@@ -44,6 +65,40 @@ const NameEntry = () => {
           <p className="text-primary-foreground/70 text-sm">
             Acesso restrito aos membros da Grupo Golphe
           </p>
+        </div>
+
+        <form onSubmit={handleHostLogin} className="space-y-3">
+          <Input
+            type="email"
+            placeholder="E-mail"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="h-11 rounded-xl bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/50"
+          />
+          <Input
+            type="password"
+            placeholder="Senha"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="h-11 rounded-xl bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/50"
+          />
+          <Button
+            type="submit"
+            disabled={hostLoading || !email || !password}
+            variant="outline"
+            className="w-full h-11 rounded-xl font-display font-semibold bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
+          >
+            {hostLoading ? "Entrando..." : "Entrar como Host"}
+          </Button>
+        </form>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-primary-foreground/20" />
+          </div>
+          <div className="relative flex justify-center text-xs">
+            <span className="px-2 bg-transparent text-primary-foreground/60">ou para convidados</span>
+          </div>
         </div>
 
         <div className="space-y-4">
