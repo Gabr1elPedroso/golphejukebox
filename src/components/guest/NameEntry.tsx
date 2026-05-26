@@ -88,18 +88,9 @@ const NameEntry = () => {
             variant="outline"
             className="w-full h-11 rounded-xl font-display font-semibold bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
           >
-            {hostLoading ? "Entrando..." : "Entrar como Host"}
+            {hostLoading ? "Entrando..." : "Entrar"}
           </Button>
         </form>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-primary-foreground/20" />
-          </div>
-          <div className="relative flex justify-center text-xs">
-            <span className="px-2 bg-transparent text-primary-foreground/60">ou para convidados</span>
-          </div>
-        </div>
 
         <div className="space-y-4">
           <Button
