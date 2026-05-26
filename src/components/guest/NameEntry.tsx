@@ -5,9 +5,9 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { lovable } from "@/integrations/lovable";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 const HOST_EMAIL = "host@grupogolphe.com.br";
-const HOST_PASSWORD = "Jukebox@2026";
 
 const NameEntry = () => {
   const [loading, setLoading] = useState(false);
@@ -34,13 +34,27 @@ const NameEntry = () => {
     }
   };
 
-  const handleHostLogin = (e: React.FormEvent) => {
+  const handleHostLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setHostLoading(true);
-    if (email.trim().toLowerCase() === HOST_EMAIL && password === HOST_PASSWORD) {
-      localStorage.setItem("golphe_host_auth", "true");
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (error || !data.session) {
+        toast.error("Credenciais inválidas.");
+        setHostLoading(false);
+        return;
+      }
+      if (data.user?.email?.toLowerCase() !== HOST_EMAIL) {
+        await supabase.auth.signOut();
+        toast.error("Credenciais inválidas.");
+        setHostLoading(false);
+        return;
+      }
       navigate("/host");
-    } else {
+    } catch {
       toast.error("Credenciais inválidas.");
       setHostLoading(false);
     }
