@@ -38,10 +38,13 @@ export async function addToQueue(track: {
   return { count: data?.count ?? 1 };
 }
 
+const QUEUE_COLUMNS =
+  'id, spotify_track_uri, title, artist, album_cover_url, requested_by, created_at';
+
 export async function getQueue(): Promise<QueueItem[]> {
   const { data, error } = await supabase
     .from('queue')
-    .select('*')
+    .select(QUEUE_COLUMNS)
     .order('created_at', { ascending: true });
 
   if (error) throw error;
