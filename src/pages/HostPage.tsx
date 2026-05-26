@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Navigate } from "react-router-dom";
 import { Music, Disc3, Users, SkipForward, Play } from "lucide-react";
 import { QueueItem, subscribeToQueue, removeFromQueue, getQueue } from "@/lib/queue";
 import { exchangeCodeForToken, refreshAccessToken, getSpotifyAuthUrl } from "@/lib/spotify";
@@ -12,6 +13,11 @@ declare global {
 }
 
 const HostPage = () => {
+  const isHostAuthed = typeof window !== "undefined" && localStorage.getItem("golphe_host_auth") === "true";
+  if (!isHostAuthed) {
+    return <Navigate to="/" replace />;
+  }
+
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [_refreshToken, setRefreshToken] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
