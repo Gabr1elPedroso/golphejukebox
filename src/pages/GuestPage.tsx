@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import NameEntry from "@/components/guest/NameEntry";
 import QueueList from "@/components/guest/QueueList";
 import { supabase } from "@/integrations/supabase/client";
+import type { Session } from "@supabase/supabase-js";
 
 const ALLOWED_DOMAIN = "@grupogolphe.com.br";
 
@@ -23,7 +24,7 @@ const GuestPage = () => {
   const debounceRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
-    const handleSession = async (session: any) => {
+    const handleSession = async (session: Session | null) => {
       if (!session?.user) {
         setIsNameSet(false);
         setUserName("");
@@ -94,8 +95,9 @@ const GuestPage = () => {
         toast.success("Música adicionada à fila!");
       }
       setTimeout(() => setAddedUri(null), 3000);
-    } catch (err: any) {
-      if (err?.message === 'IP_LIMIT_REACHED') {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "";
+      if (message === 'QUEUE_LIMIT_REACHED' || message === 'IP_LIMIT_REACHED') {
         toast.error("Limite atingido! Você já possui 3 músicas na fila. Aguarde uma delas tocar para pedir mais.");
       } else {
         toast.error("Erro ao adicionar música. Tente novamente.");

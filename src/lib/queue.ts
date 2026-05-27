@@ -26,6 +26,17 @@ export async function addToQueue(track: {
   album_cover_url: string;
   requested_by: string;
 }): Promise<{ count: number }> {
+  const { count: activeCount, error: countError } = await supabase
+    .from('queue')
+    .select('id', { count: 'exact', head: true })
+    .eq('requested_by', track.requested_by);
+
+  if (countError) throw countError;
+
+  if ((activeCount ?? 0) >= 3) {
+    throw new Error('QUEUE_LIMIT_REACHED');
+  }
+
   const session_id = getSessionId();
   const { data, error } = await supabase.functions.invoke('queue-add', {
     body: { ...track, session_id },
