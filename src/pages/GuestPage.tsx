@@ -95,7 +95,7 @@ const GuestPage = () => {
       }
       setTimeout(() => setAddedUri(null), 3000);
     } catch (err: any) {
-      if (err?.message === 'IP_LIMIT_REACHED') {
+      if (err?.message === 'QUEUE_LIMIT_REACHED' || err?.message === 'IP_LIMIT_REACHED') {
         toast.error("Limite atingido! Você já possui 3 músicas na fila. Aguarde uma delas tocar para pedir mais.");
       } else {
         toast.error("Erro ao adicionar música. Tente novamente.");
