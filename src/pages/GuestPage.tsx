@@ -86,7 +86,9 @@ const GuestPage = () => {
       });
       setAddedUri(track.uri);
       const remaining = Math.max(0, 3 - count);
-      if (remaining > 0) {
+      if (count >= 3) {
+        toast.success("Música adicionada! Você atingiu o limite máximo de 3 músicas simultâneas.");
+      } else if (remaining > 0) {
         toast.success(`Música adicionada! Você ainda pode adicionar mais ${remaining} música${remaining === 1 ? '' : 's'}.`);
       } else {
         toast.success("Música adicionada à fila!");
@@ -94,7 +96,7 @@ const GuestPage = () => {
       setTimeout(() => setAddedUri(null), 3000);
     } catch (err: any) {
       if (err?.message === 'IP_LIMIT_REACHED') {
-        toast.error("Erro ao adicionar música: você atingiu o limite máximo de 3 faixas na fila.");
+        toast.error("Limite atingido! Você já possui 3 músicas na fila. Aguarde uma delas tocar para pedir mais.");
       } else {
         toast.error("Erro ao adicionar música. Tente novamente.");
       }
