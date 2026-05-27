@@ -52,7 +52,36 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      queue_public: {
+        Row: {
+          album_cover_url: string | null
+          artist: string | null
+          created_at: string | null
+          id: string | null
+          requested_by: string | null
+          spotify_track_uri: string | null
+          title: string | null
+        }
+        Insert: {
+          album_cover_url?: string | null
+          artist?: string | null
+          created_at?: string | null
+          id?: string | null
+          requested_by?: string | null
+          spotify_track_uri?: string | null
+          title?: string | null
+        }
+        Update: {
+          album_cover_url?: string | null
+          artist?: string | null
+          created_at?: string | null
+          id?: string | null
+          requested_by?: string | null
+          spotify_track_uri?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
