@@ -73,9 +73,11 @@ const HostPage = () => {
         }
       : { isAutopilot: false, title: null };
     ch.send({ type: 'broadcast', event: 'update', payload });
-    return () => {
-      // keep channel alive across renders
-    };
+    // Rebroadcast every 5s so newly-joined guests catch up
+    const interval = setInterval(() => {
+      ch.send({ type: 'broadcast', event: 'update', payload });
+    }, 5000);
+    return () => clearInterval(interval);
   }, [currentTrack, isAutopilot]);
 
   useEffect(() => {
