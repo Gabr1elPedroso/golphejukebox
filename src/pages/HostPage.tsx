@@ -1,8 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Music, Disc3, Users, SkipForward, Play } from "lucide-react";
+import { Music, Disc3, Users, SkipForward, Play, Radio } from "lucide-react";
 import { QueueItem, subscribeToQueue, removeFromQueue, getQueue } from "@/lib/queue";
 import { exchangeCodeForToken, refreshAccessToken, getSpotifyAuthUrl } from "@/lib/spotify";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+
+const AUTOPILOT_PLAYLIST_ID = "37i9dQZF1DWYm2pA50XwQJ";
+const AUTOPILOT_LABEL = "Rádio Golphe";
+
+interface SpotifyPlaylistTrack {
+  uri: string;
+  name: string;
+  artists: { name: string }[];
+  album: { images: { url: string }[] };
+  explicit: boolean;
+  is_local?: boolean;
+}
 
 declare global {
   interface Window {
@@ -17,6 +30,7 @@ const HostPage = () => {
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentTrack, setCurrentTrack] = useState<QueueItem | null>(null);
+  const [isAutopilot, setIsAutopilot] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [needsActivation, setNeedsActivation] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -29,12 +43,51 @@ const HostPage = () => {
   const lastPositionRef = useRef<number>(0);
   const lastTrackUriRef = useRef<string | null>(null);
   const manualActionRef = useRef(false);
+  const autopilotTracksRef = useRef<SpotifyPlaylistTrack[] | null>(null);
+  const isAutopilotRef = useRef(false);
+  const nowPlayingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   // Keep refs in sync
   useEffect(() => { queueRef.current = queue; }, [queue]);
   useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
   useEffect(() => { deviceIdRef.current = deviceId; }, [deviceId]);
   useEffect(() => { accessTokenRef.current = accessToken; }, [accessToken]);
+  useEffect(() => { isAutopilotRef.current = isAutopilot; }, [isAutopilot]);
+
+  // Broadcast now-playing state to guests
+  useEffect(() => {
+    if (!nowPlayingChannelRef.current) {
+      nowPlayingChannelRef.current = supabase.channel('now-playing', {
+        config: { broadcast: { self: false } },
+      });
+      nowPlayingChannelRef.current.subscribe();
+    }
+    const ch = nowPlayingChannelRef.current;
+    const payload = currentTrack
+      ? {
+          isAutopilot,
+          title: currentTrack.title,
+          artist: currentTrack.artist,
+          album_cover_url: currentTrack.album_cover_url,
+          requested_by: currentTrack.requested_by,
+        }
+      : { isAutopilot: false, title: null };
+    ch.send({ type: 'broadcast', event: 'update', payload });
+    // Rebroadcast every 5s so newly-joined guests catch up
+    const interval = setInterval(() => {
+      ch.send({ type: 'broadcast', event: 'update', payload });
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [currentTrack, isAutopilot]);
+
+  useEffect(() => {
+    return () => {
+      if (nowPlayingChannelRef.current) {
+        supabase.removeChannel(nowPlayingChannelRef.current);
+        nowPlayingChannelRef.current = null;
+      }
+    };
+  }, []);
 
   // Handle OAuth callback
   useEffect(() => {
@@ -171,6 +224,57 @@ const HostPage = () => {
     lastTrackUriRef.current = uri;
   }, []);
 
+  const fetchAutopilotTracks = useCallback(async (): Promise<SpotifyPlaylistTrack[]> => {
+    if (autopilotTracksRef.current && autopilotTracksRef.current.length > 0) {
+      return autopilotTracksRef.current;
+    }
+    const token = accessTokenRef.current;
+    if (!token) return [];
+    const res = await fetch(
+      `https://api.spotify.com/v1/playlists/${AUTOPILOT_PLAYLIST_ID}/tracks?limit=100&fields=items(track(uri,name,explicit,is_local,artists(name),album(images)))`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok) {
+      console.error("Failed to fetch autopilot playlist:", res.status);
+      return [];
+    }
+    const data = await res.json();
+    const tracks: SpotifyPlaylistTrack[] = (data.items || [])
+      .map((it: any) => it.track)
+      .filter((t: any) => t && t.uri && !t.is_local && t.explicit === false);
+    autopilotTracksRef.current = tracks;
+    return tracks;
+  }, []);
+
+  const playAutopilotTrack = useCallback(async () => {
+    const tracks = await fetchAutopilotTracks();
+    if (tracks.length === 0) {
+      setCurrentTrack(null);
+      setIsAutopilot(false);
+      setIsPlaying(false);
+      return;
+    }
+    const pick = tracks[Math.floor(Math.random() * tracks.length)];
+    const item: QueueItem = {
+      id: `autopilot-${pick.uri}`,
+      spotify_track_uri: pick.uri,
+      title: pick.name,
+      artist: pick.artists.map((a) => a.name).join(', '),
+      album_cover_url: pick.album.images?.[0]?.url || '',
+      requested_by: AUTOPILOT_LABEL,
+      created_at: new Date().toISOString(),
+    };
+    setIsAutopilot(true);
+    setCurrentTrack(item);
+    setIsPlaying(true);
+    try {
+      await playTrack(pick.uri);
+    } catch (err) {
+      console.error("Error playing autopilot track:", err);
+      setIsPlaying(false);
+    }
+  }, [fetchAutopilotTracks, playTrack]);
+
   const pausePlayback = useCallback(async () => {
     const did = deviceIdRef.current;
     const token = accessTokenRef.current;
@@ -184,13 +288,13 @@ const HostPage = () => {
   const playNext = useCallback(async () => {
     const q = queueRef.current;
     if (q.length === 0) {
-      setCurrentTrack(null);
-      setIsPlaying(false);
-      playingUriRef.current = null;
+      // Queue empty → enter autopilot
+      await playAutopilotTrack();
       return;
     }
 
     const next = q[0];
+    setIsAutopilot(false);
     setCurrentTrack(next);
     setIsPlaying(true);
 
@@ -200,13 +304,13 @@ const HostPage = () => {
       console.error("Error playing track:", err);
       setIsPlaying(false);
     }
-  }, [playTrack]);
+  }, [playTrack, playAutopilotTrack]);
 
   const handleTrackEnded = useCallback(async () => {
     if (endingTrackRef.current) return;
     endingTrackRef.current = true;
     const track = currentTrackRef.current;
-    if (track) {
+    if (track && !isAutopilotRef.current) {
       console.log("Track ended, removing from queue:", track.title);
       await removeFromQueue(track.id);
     }
@@ -214,12 +318,6 @@ const HostPage = () => {
     playingUriRef.current = null;
     const freshQueue = await getQueue();
     queueRef.current = freshQueue;
-
-    if (freshQueue.length === 0) {
-      setCurrentTrack(null);
-      endingTrackRef.current = false;
-      return;
-    }
 
     endingTrackRef.current = false;
     setTimeout(() => playNext(), 250);
@@ -232,20 +330,20 @@ const HostPage = () => {
   useEffect(() => {
     if (!deviceId) return;
     if (currentTrack) return;
-    if (queue.length === 0) return;
     if (needsActivation) return;
     playNext();
   }, [queue, currentTrack, deviceId, needsActivation, playNext]);
 
   const handleSkip = async () => {
     const track = currentTrackRef.current;
-    if (track) {
+    if (track && !isAutopilotRef.current) {
       await removeFromQueue(track.id);
     }
 
     const freshQueue = await getQueue();
 
     if (freshQueue.length > 0) {
+      setIsAutopilot(false);
       const next = freshQueue[0];
       setCurrentTrack(next);
       setIsPlaying(true);
@@ -256,10 +354,7 @@ const HostPage = () => {
         setIsPlaying(false);
       }
     } else {
-      await pausePlayback();
-      setCurrentTrack(null);
-      setIsPlaying(false);
-      playingUriRef.current = null;
+      await playAutopilotTrack();
     }
   };
 
@@ -348,7 +443,7 @@ const HostPage = () => {
                 className="w-64 h-64 lg:w-80 lg:h-80 rounded-3xl object-cover now-playing-glow"
               />
               <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-secondary text-secondary-foreground text-xs font-display font-bold">
-                TOCANDO AGORA
+                {isAutopilot ? "PILOTO AUTOMÁTICO" : "TOCANDO AGORA"}
               </div>
             </div>
             <div className="space-y-2">
@@ -356,10 +451,17 @@ const HostPage = () => {
                 {currentTrack.title}
               </h2>
               <p className="text-xl text-primary-foreground/70">{currentTrack.artist}</p>
-              <p className="text-sm text-secondary flex items-center justify-center gap-1.5">
-                <Users className="w-4 h-4" />
-                Pedida por {currentTrack.requested_by}
-              </p>
+              {isAutopilot ? (
+                <p className="text-sm text-secondary flex items-center justify-center gap-1.5">
+                  <Radio className="w-4 h-4" />
+                  Tocando {AUTOPILOT_LABEL} · Piloto Automático
+                </p>
+              ) : (
+                <p className="text-sm text-secondary flex items-center justify-center gap-1.5">
+                  <Users className="w-4 h-4" />
+                  Pedida por {currentTrack.requested_by}
+                </p>
+              )}
             </div>
             <div className="w-full flex justify-center mt-6">
               <Button
