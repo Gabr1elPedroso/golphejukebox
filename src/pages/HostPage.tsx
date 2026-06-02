@@ -556,6 +556,35 @@ const HostPage = () => {
 
       {/* Queue sidebar */}
       <div className="w-full lg:w-96 bg-foreground/5 backdrop-blur-sm border-l border-primary-foreground/10 p-6 overflow-y-auto max-h-screen">
+        {/* Autopilot config */}
+        <div className="mb-6 p-4 rounded-xl bg-primary-foreground/5 border border-primary-foreground/10">
+          <h3 className="font-display font-bold text-primary-foreground/80 text-sm uppercase tracking-wider mb-3 flex items-center gap-2">
+            <SettingsIcon className="w-4 h-4 text-secondary" />
+            Configuração do Piloto Automático
+          </h3>
+          <p className="text-xs text-primary-foreground/50 mb-2">
+            Playlist tocada quando a fila estiver vazia.
+          </p>
+          <div className="flex flex-col gap-2">
+            <Input
+              value={playlistInput}
+              onChange={(e) => setPlaylistInput(e.target.value)}
+              placeholder="Link ou ID da playlist Spotify"
+              className="bg-background/10 text-primary-foreground placeholder:text-primary-foreground/30 border-primary-foreground/20"
+            />
+            <Button
+              onClick={handleSavePlaylist}
+              disabled={savingPlaylist}
+              className="h-9 rounded-lg bg-secondary hover:bg-secondary/90 text-secondary-foreground font-display font-bold text-sm"
+            >
+              {savingPlaylist ? "A guardar..." : "Guardar Playlist"}
+            </Button>
+            <p className="text-[10px] text-primary-foreground/40 truncate">
+              Atual: {fallbackPlaylistId}
+            </p>
+          </div>
+        </div>
+
         <h3 className="font-display font-bold text-primary-foreground/80 text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
           <Music className="w-4 h-4 text-secondary" />
           Próximas ({queue.length})
