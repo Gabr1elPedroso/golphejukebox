@@ -443,7 +443,7 @@ const HostPage = () => {
                 className="w-64 h-64 lg:w-80 lg:h-80 rounded-3xl object-cover now-playing-glow"
               />
               <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-secondary text-secondary-foreground text-xs font-display font-bold">
-                TOCANDO AGORA
+                {isAutopilot ? "PILOTO AUTOMÁTICO" : "TOCANDO AGORA"}
               </div>
             </div>
             <div className="space-y-2">
