@@ -1,12 +1,24 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Music, Disc3, Users, SkipForward, Play, Radio } from "lucide-react";
+import { Music, Disc3, Users, SkipForward, Play, Radio, Settings as SettingsIcon } from "lucide-react";
 import { QueueItem, subscribeToQueue, removeFromQueue, getQueue } from "@/lib/queue";
 import { exchangeCodeForToken, refreshAccessToken, getSpotifyAuthUrl } from "@/lib/spotify";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-const AUTOPILOT_PLAYLIST_ID = "37i9dQZF1DWYm2pA50XwQJ";
+const DEFAULT_AUTOPILOT_PLAYLIST_ID = "37i9dQZF1DWYm2pA50XwQJ";
 const AUTOPILOT_LABEL = "Rádio Golphe";
+
+function extractPlaylistId(input: string): string | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  // Match spotify URL or URI
+  const urlMatch = trimmed.match(/playlist[/:]([a-zA-Z0-9]{22})/);
+  if (urlMatch) return urlMatch[1];
+  if (/^[a-zA-Z0-9]{22}$/.test(trimmed)) return trimmed;
+  return null;
+}
 
 interface SpotifyPlaylistTrack {
   uri: string;
@@ -46,6 +58,10 @@ const HostPage = () => {
   const autopilotTracksRef = useRef<SpotifyPlaylistTrack[] | null>(null);
   const isAutopilotRef = useRef(false);
   const nowPlayingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const [fallbackPlaylistId, setFallbackPlaylistId] = useState<string>(DEFAULT_AUTOPILOT_PLAYLIST_ID);
+  const [playlistInput, setPlaylistInput] = useState<string>("");
+  const [savingPlaylist, setSavingPlaylist] = useState(false);
+  const fallbackPlaylistIdRef = useRef<string>(DEFAULT_AUTOPILOT_PLAYLIST_ID);
 
   // Keep refs in sync
   useEffect(() => { queueRef.current = queue; }, [queue]);
@@ -53,6 +69,46 @@ const HostPage = () => {
   useEffect(() => { deviceIdRef.current = deviceId; }, [deviceId]);
   useEffect(() => { accessTokenRef.current = accessToken; }, [accessToken]);
   useEffect(() => { isAutopilotRef.current = isAutopilot; }, [isAutopilot]);
+  useEffect(() => { fallbackPlaylistIdRef.current = fallbackPlaylistId; }, [fallbackPlaylistId]);
+
+  // Load fallback playlist id from settings
+  useEffect(() => {
+    let mounted = true;
+    supabase
+      .from('app_settings')
+      .select('value')
+      .eq('id', 'fallback_playlist_id')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!mounted) return;
+        const val = data?.value || DEFAULT_AUTOPILOT_PLAYLIST_ID;
+        setFallbackPlaylistId(val);
+        setPlaylistInput(val);
+      });
+    return () => { mounted = false; };
+  }, []);
+
+  const handleSavePlaylist = async () => {
+    const id = extractPlaylistId(playlistInput);
+    if (!id) {
+      toast.error("Link ou ID inválido. Cole um link de playlist do Spotify.");
+      return;
+    }
+    setSavingPlaylist(true);
+    const { data: userData } = await supabase.auth.getUser();
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert({ id: 'fallback_playlist_id', value: id, updated_by: userData.user?.id, updated_at: new Date().toISOString() });
+    setSavingPlaylist(false);
+    if (error) {
+      toast.error("Não foi possível guardar a playlist. Verifique suas permissões.");
+      return;
+    }
+    setFallbackPlaylistId(id);
+    setPlaylistInput(id);
+    autopilotTracksRef.current = null; // invalidate cache so next autopilot fetches new playlist
+    toast.success("Playlist de backup atualizada! 🎵");
+  };
 
   // Broadcast now-playing state to guests
   useEffect(() => {
@@ -230,8 +286,9 @@ const HostPage = () => {
     }
     const token = accessTokenRef.current;
     if (!token) return [];
+    const playlistId = fallbackPlaylistIdRef.current || DEFAULT_AUTOPILOT_PLAYLIST_ID;
     const res = await fetch(
-      `https://api.spotify.com/v1/playlists/${AUTOPILOT_PLAYLIST_ID}/tracks?limit=100&fields=items(track(uri,name,explicit,is_local,artists(name),album(images)))`,
+      `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100&fields=items(track(uri,name,explicit,is_local,artists(name),album(images)))`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     if (!res.ok) {
@@ -499,6 +556,35 @@ const HostPage = () => {
 
       {/* Queue sidebar */}
       <div className="w-full lg:w-96 bg-foreground/5 backdrop-blur-sm border-l border-primary-foreground/10 p-6 overflow-y-auto max-h-screen">
+        {/* Autopilot config */}
+        <div className="mb-6 p-4 rounded-xl bg-primary-foreground/5 border border-primary-foreground/10">
+          <h3 className="font-display font-bold text-primary-foreground/80 text-sm uppercase tracking-wider mb-3 flex items-center gap-2">
+            <SettingsIcon className="w-4 h-4 text-secondary" />
+            Configuração do Piloto Automático
+          </h3>
+          <p className="text-xs text-primary-foreground/50 mb-2">
+            Playlist tocada quando a fila estiver vazia.
+          </p>
+          <div className="flex flex-col gap-2">
+            <Input
+              value={playlistInput}
+              onChange={(e) => setPlaylistInput(e.target.value)}
+              placeholder="Link ou ID da playlist Spotify"
+              className="bg-background/10 text-primary-foreground placeholder:text-primary-foreground/30 border-primary-foreground/20"
+            />
+            <Button
+              onClick={handleSavePlaylist}
+              disabled={savingPlaylist}
+              className="h-9 rounded-lg bg-secondary hover:bg-secondary/90 text-secondary-foreground font-display font-bold text-sm"
+            >
+              {savingPlaylist ? "A guardar..." : "Guardar Playlist"}
+            </Button>
+            <p className="text-[10px] text-primary-foreground/40 truncate">
+              Atual: {fallbackPlaylistId}
+            </p>
+          </div>
+        </div>
+
         <h3 className="font-display font-bold text-primary-foreground/80 text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
           <Music className="w-4 h-4 text-secondary" />
           Próximas ({queue.length})
