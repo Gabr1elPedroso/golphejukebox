@@ -7,6 +7,7 @@ import { addToQueue } from "@/lib/queue";
 import { toast } from "sonner";
 import NameEntry from "@/components/guest/NameEntry";
 import QueueList from "@/components/guest/QueueList";
+import NowPlayingBanner from "@/components/guest/NowPlayingBanner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 
@@ -203,6 +204,9 @@ const GuestPage = () => {
         {/* Queue Section */}
         {!showSearchResults && (
           <section>
+            <div className="mb-3">
+              <NowPlayingBanner />
+            </div>
             <div className="flex items-center gap-2 mb-3 px-1">
               <ListMusic className="w-5 h-5 text-secondary" />
               <h2 className="font-display font-bold text-foreground text-lg">Fila da Festa</h2>
