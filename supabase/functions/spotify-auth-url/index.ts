@@ -33,7 +33,7 @@ serve(async (req) => {
       throw new Error('SPOTIFY_CLIENT_ID not configured');
     }
 
-    const scopes = 'streaming user-read-email user-read-private';
+    const scopes = 'streaming user-read-email user-read-private playlist-read-private playlist-read-collaborative';
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: clientId,
