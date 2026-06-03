@@ -17,21 +17,21 @@ export type Database = {
       app_settings: {
         Row: {
           id: string
-          updated_at: string
+          updated_at: string | null
           updated_by: string | null
-          value: string | null
+          value: string
         }
         Insert: {
           id: string
-          updated_at?: string
+          updated_at?: string | null
           updated_by?: string | null
-          value?: string | null
+          value: string
         }
         Update: {
           id?: string
-          updated_at?: string
+          updated_at?: string | null
           updated_by?: string | null
-          value?: string | null
+          value?: string
         }
         Relationships: []
       }

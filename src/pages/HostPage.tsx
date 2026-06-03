@@ -282,36 +282,55 @@ const HostPage = () => {
 
   const fetchAutopilotTracks = useCallback(async (): Promise<SpotifyPlaylistTrack[]> => {
     if (autopilotTracksRef.current && autopilotTracksRef.current.length > 0) {
+      console.log("[Autopilot] Using cached tracks:", autopilotTracksRef.current.length);
       return autopilotTracksRef.current;
     }
     const token = accessTokenRef.current;
-    if (!token) return [];
-    const playlistId = fallbackPlaylistIdRef.current || DEFAULT_AUTOPILOT_PLAYLIST_ID;
-    const res = await fetch(
-      `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100&fields=items(track(uri,name,explicit,is_local,artists(name),album(images)))`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+    if (!token) {
+      console.warn("[Autopilot] No Spotify access token yet");
+      return [];
+    }
+    const rawId = fallbackPlaylistIdRef.current || DEFAULT_AUTOPILOT_PLAYLIST_ID;
+    // Defensive: if a full URL/URI was somehow stored, extract the bare ID
+    const playlistId = extractPlaylistId(rawId) || rawId;
+    const url = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100&fields=items(track(uri,name,explicit,is_local,artists(name),album(images)))`;
+    console.log("[Autopilot] Fetching playlist tracks:", playlistId);
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) {
-      console.error("Failed to fetch autopilot playlist:", res.status);
+      const body = await res.text().catch(() => "");
+      console.error("[Autopilot] Failed to fetch playlist:", res.status, body);
+      if (res.status === 404) {
+        toast.error("Playlist do Piloto Automático não encontrada. Verifique o ID/link salvo.");
+      } else if (res.status === 403 || res.status === 401) {
+        toast.error("Sem permissão para ler essa playlist do Spotify. Use uma playlist pública ou sua.");
+      } else {
+        toast.error(`Erro ao carregar Piloto Automático (${res.status}).`);
+      }
       return [];
     }
     const data = await res.json();
-    const tracks: SpotifyPlaylistTrack[] = (data.items || [])
-      .map((it: any) => it.track)
-      .filter((t: any) => t && t.uri && !t.is_local && t.explicit === false);
-    autopilotTracksRef.current = tracks;
-    return tracks;
+    const all = (data.items || []).map((it: any) => it.track).filter((t: any) => t && t.uri && !t.is_local);
+    const clean = all.filter((t: any) => t.explicit === false);
+    console.log(`[Autopilot] Loaded ${all.length} tracks, ${clean.length} clean (non-explicit)`);
+    if (clean.length === 0) {
+      toast.error("A playlist do Piloto Automático não tem faixas não-explícitas.");
+    }
+    autopilotTracksRef.current = clean;
+    return clean;
   }, []);
 
   const playAutopilotTrack = useCallback(async () => {
+    console.log("[Autopilot] Triggering autopilot playback...");
     const tracks = await fetchAutopilotTracks();
     if (tracks.length === 0) {
+      console.warn("[Autopilot] No tracks available — staying idle");
       setCurrentTrack(null);
       setIsAutopilot(false);
       setIsPlaying(false);
       return;
     }
     const pick = tracks[Math.floor(Math.random() * tracks.length)];
+    console.log("[Autopilot] Picked track:", pick.name, "-", pick.artists.map(a => a.name).join(", "));
     const item: QueueItem = {
       id: `autopilot-${pick.uri}`,
       spotify_track_uri: pick.uri,
