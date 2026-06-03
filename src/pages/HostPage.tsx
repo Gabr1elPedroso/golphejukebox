@@ -11,12 +11,17 @@ const DEFAULT_AUTOPILOT_PLAYLIST_ID = "37i9dQZF1DWYm2pA50XwQJ";
 const AUTOPILOT_LABEL = "Rádio Golphe";
 
 function extractPlaylistId(input: string): string | null {
+  if (!input) return null;
   const trimmed = input.trim();
   if (!trimmed) return null;
-  // Match spotify URL or URI
-  const urlMatch = trimmed.match(/playlist[/:]([a-zA-Z0-9]{22})/);
+  // Full URL: https://open.spotify.com/playlist/<id>?si=...
+  const urlMatch = trimmed.match(/open\.spotify\.com\/playlist\/([a-zA-Z0-9]+)/i);
   if (urlMatch) return urlMatch[1];
-  if (/^[a-zA-Z0-9]{22}$/.test(trimmed)) return trimmed;
+  // Spotify URI: spotify:playlist:<id>
+  const uriMatch = trimmed.match(/spotify:playlist:([a-zA-Z0-9]+)/i);
+  if (uriMatch) return uriMatch[1];
+  // Bare ID (alphanumeric)
+  if (/^[a-zA-Z0-9]+$/.test(trimmed)) return trimmed;
   return null;
 }
 
@@ -291,18 +296,23 @@ const HostPage = () => {
       return [];
     }
     const rawId = fallbackPlaylistIdRef.current || DEFAULT_AUTOPILOT_PLAYLIST_ID;
-    // Defensive: if a full URL/URI was somehow stored, extract the bare ID
     const playlistId = extractPlaylistId(rawId) || rawId;
+    console.log("ID da Playlist extraído:", playlistId, "(raw:", rawId, ")");
     const url = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100&fields=items(track(uri,name,explicit,is_local,artists(name),album(images)))`;
-    console.log("[Autopilot] Fetching playlist tracks:", playlistId);
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    console.log("[Autopilot] Fetching playlist tracks:", playlistId, "with token len:", token.length);
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      console.error("[Autopilot] Failed to fetch playlist:", res.status, body);
+      console.error("Erro da API do Spotify:", res.status, body);
       if (res.status === 404) {
         toast.error("Playlist do Piloto Automático não encontrada. Verifique o ID/link salvo.");
       } else if (res.status === 403 || res.status === 401) {
-        toast.error("Sem permissão para ler essa playlist do Spotify. Use uma playlist pública ou sua.");
+        toast.error("Sem permissão (403). Reconecte o Spotify para conceder a permissão 'playlist-read'.");
       } else {
         toast.error(`Erro ao carregar Piloto Automático (${res.status}).`);
       }
