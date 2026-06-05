@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Music, Disc3, Users, SkipForward, Play, Radio, Settings as SettingsIcon } from "lucide-react";
+import { Music, Disc3, Users, SkipForward, Play, Radio, Settings as SettingsIcon, LogOut } from "lucide-react";
 import { QueueItem, subscribeToQueue, removeFromQueue, getQueue } from "@/lib/queue";
 import { exchangeCodeForToken, refreshAccessToken, getSpotifyAuthUrl } from "@/lib/spotify";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,23 @@ import { supabase } from "@/integrations/supabase/client";
 
 const DEFAULT_AUTOPILOT_PLAYLIST_ID = "37i9dQZF1DWYm2pA50XwQJ";
 const AUTOPILOT_LABEL = "Rádio Golphe";
+
+const SPOTIFY_TOKEN_KEYS = [
+  "spotify_access_token",
+  "spotify_refresh_token",
+  "spotify_expires_at",
+];
+
+function clearSpotifyStorage() {
+  try {
+    SPOTIFY_TOKEN_KEYS.forEach((k) => {
+      localStorage.removeItem(k);
+      sessionStorage.removeItem(k);
+    });
+  } catch (e) {
+    console.warn("Failed to clear Spotify storage", e);
+  }
+}
 
 function extractPlaylistId(input: string): string | null {
   if (!input) return null;
@@ -43,7 +60,7 @@ declare global {
 
 const HostPage = () => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [_refreshToken, setRefreshToken] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentTrack, setCurrentTrack] = useState<QueueItem | null>(null);
@@ -56,6 +73,8 @@ const HostPage = () => {
   const playingUriRef = useRef<string | null>(null);
   const deviceIdRef = useRef<string | null>(null);
   const accessTokenRef = useRef<string | null>(null);
+  const refreshTokenRef = useRef<string | null>(null);
+  const refreshingRef = useRef<Promise<string | null> | null>(null);
   const endingTrackRef = useRef(false);
   const lastPositionRef = useRef<number>(0);
   const lastTrackUriRef = useRef<string | null>(null);
@@ -73,6 +92,88 @@ const HostPage = () => {
   useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
   useEffect(() => { deviceIdRef.current = deviceId; }, [deviceId]);
   useEffect(() => { accessTokenRef.current = accessToken; }, [accessToken]);
+  useEffect(() => { refreshTokenRef.current = refreshToken; }, [refreshToken]);
+
+  // Persist tokens to localStorage so they survive reloads / tab close
+  useEffect(() => {
+    if (accessToken) localStorage.setItem("spotify_access_token", accessToken);
+  }, [accessToken]);
+  useEffect(() => {
+    if (refreshToken) localStorage.setItem("spotify_refresh_token", refreshToken);
+  }, [refreshToken]);
+
+  // Restore tokens from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem("spotify_access_token");
+    const storedRefresh = localStorage.getItem("spotify_refresh_token");
+    if (stored) setAccessToken(stored);
+    if (storedRefresh) setRefreshToken(storedRefresh);
+  }, []);
+
+  const disconnectSpotify = useCallback((opts?: { silent?: boolean }) => {
+    clearSpotifyStorage();
+    setAccessToken(null);
+    setRefreshToken(null);
+    setDeviceId(null);
+    setCurrentTrack(null);
+    setIsAutopilot(false);
+    setIsPlaying(false);
+    setNeedsActivation(false);
+    setLoading(true);
+    accessTokenRef.current = null;
+    refreshTokenRef.current = null;
+    deviceIdRef.current = null;
+    playingUriRef.current = null;
+    autopilotTracksRef.current = null;
+    if (!opts?.silent) {
+      toast.success("Spotify desconectado.");
+    }
+  }, []);
+
+  const refreshTokenSilently = useCallback(async (): Promise<string | null> => {
+    if (refreshingRef.current) return refreshingRef.current;
+    const rt = refreshTokenRef.current;
+    if (!rt) {
+      console.warn("[Spotify] No refresh token available; forcing reconnect.");
+      toast.error("Sessão Spotify expirada. Reconecte para continuar.");
+      disconnectSpotify({ silent: true });
+      return null;
+    }
+    refreshingRef.current = (async () => {
+      try {
+        const r = await refreshAccessToken(rt);
+        setAccessToken(r.access_token);
+        accessTokenRef.current = r.access_token;
+        console.log("[Spotify] Token refreshed silently");
+        return r.access_token as string;
+      } catch (err) {
+        console.error("[Spotify] Refresh failed:", err);
+        toast.error("Não foi possível renovar a sessão Spotify. Reconecte.");
+        disconnectSpotify({ silent: true });
+        return null;
+      } finally {
+        refreshingRef.current = null;
+      }
+    })();
+    return refreshingRef.current;
+  }, [disconnectSpotify]);
+
+  // Authenticated fetch wrapper that handles 401 via refresh
+  const spotifyFetch = useCallback(async (url: string, init: RequestInit = {}): Promise<Response> => {
+    const token = accessTokenRef.current;
+    const buildHeaders = (t: string) => ({
+      ...(init.headers || {}),
+      Authorization: `Bearer ${t}`,
+    });
+    let res = await fetch(url, { ...init, headers: token ? buildHeaders(token) : init.headers });
+    if (res.status === 401) {
+      console.warn("[Spotify] 401 received; attempting silent refresh for", url);
+      const newToken = await refreshTokenSilently();
+      if (!newToken) return res;
+      res = await fetch(url, { ...init, headers: buildHeaders(newToken) });
+    }
+    return res;
+  }, [refreshTokenSilently]);
   useEffect(() => { isAutopilotRef.current = isAutopilot; }, [isAutopilot]);
   useEffect(() => { fallbackPlaylistIdRef.current = fallbackPlaylistId; }, [fallbackPlaylistId]);
 
