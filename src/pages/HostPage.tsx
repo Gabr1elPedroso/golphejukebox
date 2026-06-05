@@ -262,10 +262,16 @@ const HostPage = () => {
       exchangeCodeForToken(code, redirectUri).then((data) => {
         setAccessToken(data.access_token);
         setRefreshToken(data.refresh_token);
+        if (data.expires_in) {
+          localStorage.setItem("spotify_expires_at", String(Date.now() + data.expires_in * 1000));
+        }
         setTimeout(() => {
           if (data.refresh_token) {
             refreshAccessToken(data.refresh_token).then((r) => {
               setAccessToken(r.access_token);
+              if (r.expires_in) {
+                localStorage.setItem("spotify_expires_at", String(Date.now() + r.expires_in * 1000));
+              }
             });
           }
         }, (data.expires_in - 120) * 1000);
@@ -297,18 +303,16 @@ const HostPage = () => {
         setLoading(false);
         const token = accessTokenRef.current || accessToken;
         // Force transfer playback to THIS device so audio plays on the current browser
-        fetch(`https://api.spotify.com/v1/me/player`, {
+        spotifyFetch(`https://api.spotify.com/v1/me/player`, {
           method: "PUT",
           headers: {
-            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ device_ids: [device_id], play: false }),
         }).catch((e) => console.error("Failed to transfer playback:", e));
         // Ensure repeat mode is OFF so tracks don't loop when queue is empty
-        fetch(`https://api.spotify.com/v1/me/player/repeat?state=off&device_id=${device_id}`, {
+        spotifyFetch(`https://api.spotify.com/v1/me/player/repeat?state=off&device_id=${device_id}`, {
           method: "PUT",
-          headers: { Authorization: `Bearer ${token}` },
         }).catch((e) => console.error("Failed to disable repeat:", e));
       });
 
@@ -361,10 +365,9 @@ const HostPage = () => {
     manualActionRef.current = true;
     setTimeout(() => { manualActionRef.current = false; }, 1500);
 
-    const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${did}`, {
+    const res = await spotifyFetch(`https://api.spotify.com/v1/me/player/play?device_id=${did}`, {
       method: "PUT",
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ uris: [uri] }),
@@ -374,7 +377,7 @@ const HostPage = () => {
       const err = await res.text();
       console.error("Spotify play error:", res.status, err);
       // Autoplay blocked by browser
-      if (res.status === 403 || res.status === 401) {
+      if (res.status === 403) {
         setNeedsActivation(true);
       }
       throw new Error(`Play failed: ${res.status}`);
@@ -384,7 +387,7 @@ const HostPage = () => {
     playingUriRef.current = uri;
     lastPositionRef.current = 0;
     lastTrackUriRef.current = uri;
-  }, []);
+  }, [spotifyFetch]);
 
   const fetchAutopilotTracks = useCallback(async (): Promise<SpotifyPlaylistTrack[]> => {
     if (autopilotTracksRef.current && autopilotTracksRef.current.length > 0) {
@@ -401,9 +404,8 @@ const HostPage = () => {
     console.log("ID da Playlist extraído:", playlistId, "(raw:", rawId, ")");
     const url = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100&fields=items(track(uri,name,explicit,is_local,artists(name),album(images)))`;
     console.log("[Autopilot] Fetching playlist tracks:", playlistId, "with token len:", token.length);
-    const res = await fetch(url, {
+    const res = await spotifyFetch(url, {
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
     });
@@ -412,8 +414,10 @@ const HostPage = () => {
       console.error("Erro da API do Spotify:", res.status, body);
       if (res.status === 404) {
         toast.error("Playlist do Piloto Automático não encontrada. Verifique o ID/link salvo.");
-      } else if (res.status === 403 || res.status === 401) {
+      } else if (res.status === 403) {
         toast.error("Sem permissão (403). Reconecte o Spotify para conceder a permissão 'playlist-read'.");
+      } else if (res.status === 401) {
+        toast.error("Sessão Spotify expirada. Reconecte para continuar.");
       } else {
         toast.error(`Erro ao carregar Piloto Automático (${res.status}).`);
       }
@@ -428,7 +432,7 @@ const HostPage = () => {
     }
     autopilotTracksRef.current = clean;
     return clean;
-  }, []);
+  }, [spotifyFetch]);
 
   const playAutopilotTrack = useCallback(async () => {
     console.log("[Autopilot] Triggering autopilot playback...");
@@ -466,11 +470,10 @@ const HostPage = () => {
     const did = deviceIdRef.current;
     const token = accessTokenRef.current;
     if (!did || !token) return;
-    await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${did}`, {
+    await spotifyFetch(`https://api.spotify.com/v1/me/player/pause?device_id=${did}`, {
       method: "PUT",
-      headers: { Authorization: `Bearer ${token}` },
     });
-  }, []);
+  }, [spotifyFetch]);
 
   const playNext = useCallback(async () => {
     const q = queueRef.current;
