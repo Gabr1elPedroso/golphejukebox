@@ -606,6 +606,16 @@ const HostPage = () => {
           className="w-10 h-10 object-contain"
         />
         <h1 className="text-xl font-display font-bold text-primary-foreground">Golphe JukeBox</h1>
+        <div className="ml-auto">
+          <Button
+            onClick={() => disconnectSpotify()}
+            variant="outline"
+            className="h-9 rounded-lg border-primary-foreground/20 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 font-display text-sm"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Desconectar Spotify
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 flex flex-col lg:flex-row">
