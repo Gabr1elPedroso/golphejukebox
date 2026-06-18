@@ -16,6 +16,25 @@ const SPOTIFY_TOKEN_KEYS = [
   "spotify_expires_at",
 ];
 
+function getStoredSpotifyToken(key: string): string | null {
+  try {
+    return localStorage.getItem(key) || sessionStorage.getItem(key);
+  } catch (e) {
+    console.warn("Failed to read Spotify storage", e);
+    return null;
+  }
+}
+
+function persistSpotifyTokens(tokens: { accessToken?: string | null; refreshToken?: string | null; expiresIn?: number | null }) {
+  try {
+    if (tokens.accessToken) localStorage.setItem("spotify_access_token", tokens.accessToken);
+    if (tokens.refreshToken) localStorage.setItem("spotify_refresh_token", tokens.refreshToken);
+    if (tokens.expiresIn) localStorage.setItem("spotify_expires_at", String(Date.now() + tokens.expiresIn * 1000));
+  } catch (e) {
+    console.warn("Failed to persist Spotify tokens", e);
+  }
+}
+
 function clearSpotifyStorage() {
   try {
     SPOTIFY_TOKEN_KEYS.forEach((k) => {
@@ -65,8 +84,9 @@ declare global {
 }
 
 const HostPage = () => {
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [refreshToken, setRefreshToken] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(() => getStoredSpotifyToken("spotify_access_token"));
+  const [refreshToken, setRefreshToken] = useState<string | null>(() => getStoredSpotifyToken("spotify_refresh_token"));
+  const [spotifyAuthReady, setSpotifyAuthReady] = useState(false);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentTrack, setCurrentTrack] = useState<QueueItem | null>(null);
@@ -78,8 +98,8 @@ const HostPage = () => {
   const queueRef = useRef<QueueItem[]>([]);
   const playingUriRef = useRef<string | null>(null);
   const deviceIdRef = useRef<string | null>(null);
-  const accessTokenRef = useRef<string | null>(null);
-  const refreshTokenRef = useRef<string | null>(null);
+  const accessTokenRef = useRef<string | null>(accessToken);
+  const refreshTokenRef = useRef<string | null>(refreshToken);
   const refreshingRef = useRef<Promise<string | null> | null>(null);
   const endingTrackRef = useRef(false);
   const lastPositionRef = useRef<number>(0);
