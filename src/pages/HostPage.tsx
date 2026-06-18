@@ -16,6 +16,25 @@ const SPOTIFY_TOKEN_KEYS = [
   "spotify_expires_at",
 ];
 
+function getStoredSpotifyToken(key: string): string | null {
+  try {
+    return localStorage.getItem(key) || sessionStorage.getItem(key);
+  } catch (e) {
+    console.warn("Failed to read Spotify storage", e);
+    return null;
+  }
+}
+
+function persistSpotifyTokens(tokens: { accessToken?: string | null; refreshToken?: string | null; expiresIn?: number | null }) {
+  try {
+    if (tokens.accessToken) localStorage.setItem("spotify_access_token", tokens.accessToken);
+    if (tokens.refreshToken) localStorage.setItem("spotify_refresh_token", tokens.refreshToken);
+    if (tokens.expiresIn) localStorage.setItem("spotify_expires_at", String(Date.now() + tokens.expiresIn * 1000));
+  } catch (e) {
+    console.warn("Failed to persist Spotify tokens", e);
+  }
+}
+
 function clearSpotifyStorage() {
   try {
     SPOTIFY_TOKEN_KEYS.forEach((k) => {
@@ -65,8 +84,9 @@ declare global {
 }
 
 const HostPage = () => {
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [refreshToken, setRefreshToken] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(() => getStoredSpotifyToken("spotify_access_token"));
+  const [refreshToken, setRefreshToken] = useState<string | null>(() => getStoredSpotifyToken("spotify_refresh_token"));
+  const [spotifyAuthReady, setSpotifyAuthReady] = useState(false);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentTrack, setCurrentTrack] = useState<QueueItem | null>(null);
@@ -78,8 +98,8 @@ const HostPage = () => {
   const queueRef = useRef<QueueItem[]>([]);
   const playingUriRef = useRef<string | null>(null);
   const deviceIdRef = useRef<string | null>(null);
-  const accessTokenRef = useRef<string | null>(null);
-  const refreshTokenRef = useRef<string | null>(null);
+  const accessTokenRef = useRef<string | null>(accessToken);
+  const refreshTokenRef = useRef<string | null>(refreshToken);
   const refreshingRef = useRef<Promise<string | null> | null>(null);
   const endingTrackRef = useRef(false);
   const lastPositionRef = useRef<number>(0);
@@ -102,18 +122,55 @@ const HostPage = () => {
 
   // Persist tokens to localStorage so they survive reloads / tab close
   useEffect(() => {
-    if (accessToken) localStorage.setItem("spotify_access_token", accessToken);
+    if (accessToken) persistSpotifyTokens({ accessToken });
   }, [accessToken]);
   useEffect(() => {
-    if (refreshToken) localStorage.setItem("spotify_refresh_token", refreshToken);
+    if (refreshToken) persistSpotifyTokens({ refreshToken });
   }, [refreshToken]);
 
-  // Restore tokens from localStorage on mount
+  // Restore Spotify auth from storage before the player starts making API calls
   useEffect(() => {
-    const stored = localStorage.getItem("spotify_access_token");
-    const storedRefresh = localStorage.getItem("spotify_refresh_token");
-    if (stored) setAccessToken(stored);
-    if (storedRefresh) setRefreshToken(storedRefresh);
+    let cancelled = false;
+    const stored = getStoredSpotifyToken("spotify_access_token");
+    const storedRefresh = getStoredSpotifyToken("spotify_refresh_token");
+    const expiresAt = Number(getStoredSpotifyToken("spotify_expires_at") || "0");
+
+    if (stored) {
+      accessTokenRef.current = stored;
+      setAccessToken(stored);
+    }
+    if (storedRefresh) {
+      refreshTokenRef.current = storedRefresh;
+      setRefreshToken(storedRefresh);
+    }
+    console.log("[Spotify] Token restaurado do localStorage:", Boolean(stored), "refresh:", Boolean(storedRefresh));
+
+    if (storedRefresh && expiresAt && expiresAt <= Date.now() + 120000) {
+      refreshAccessToken(storedRefresh)
+        .then((r) => {
+          if (cancelled) return;
+          persistSpotifyTokens({ accessToken: r.access_token, refreshToken: r.refresh_token || storedRefresh, expiresIn: r.expires_in });
+          accessTokenRef.current = r.access_token;
+          refreshTokenRef.current = r.refresh_token || storedRefresh;
+          setAccessToken(r.access_token);
+          setRefreshToken(r.refresh_token || storedRefresh);
+        })
+        .catch((err) => {
+          console.error("[Spotify] Falha ao renovar token restaurado:", err);
+          clearSpotifyStorage();
+          accessTokenRef.current = null;
+          refreshTokenRef.current = null;
+          setAccessToken(null);
+          setRefreshToken(null);
+        })
+        .finally(() => {
+          if (!cancelled) setSpotifyAuthReady(true);
+        });
+      return () => { cancelled = true; };
+    }
+
+    setSpotifyAuthReady(true);
+    return () => { cancelled = true; };
   }, []);
 
   const disconnectSpotify = useCallback((opts?: { silent?: boolean; reload?: boolean }) => {
@@ -151,8 +208,12 @@ const HostPage = () => {
     refreshingRef.current = (async () => {
       try {
         const r = await refreshAccessToken(rt);
+        const nextRefreshToken = r.refresh_token || rt;
+        persistSpotifyTokens({ accessToken: r.access_token, refreshToken: nextRefreshToken, expiresIn: r.expires_in });
         setAccessToken(r.access_token);
+        setRefreshToken(nextRefreshToken);
         accessTokenRef.current = r.access_token;
+        refreshTokenRef.current = nextRefreshToken;
         console.log("[Spotify] Token refreshed silently");
         return r.access_token as string;
       } catch (err) {
@@ -169,12 +230,20 @@ const HostPage = () => {
 
   // Authenticated fetch wrapper that handles 401 via refresh
   const spotifyFetch = useCallback(async (url: string, init: RequestInit = {}): Promise<Response> => {
-    const token = accessTokenRef.current;
+    const token = accessTokenRef.current || getStoredSpotifyToken("spotify_access_token");
+    if (token && !accessTokenRef.current) {
+      accessTokenRef.current = token;
+      setAccessToken(token);
+    }
+    if (!token) {
+      console.warn("[Spotify] Request blocked: no access token restored yet", url);
+      return new Response(JSON.stringify({ error: "missing_spotify_access_token" }), { status: 401 });
+    }
     const buildHeaders = (t: string) => ({
       ...(init.headers || {}),
       Authorization: `Bearer ${t}`,
     });
-    let res = await fetch(url, { ...init, headers: token ? buildHeaders(token) : init.headers });
+    let res = await fetch(url, { ...init, headers: buildHeaders(token) });
     if (res.status === 401) {
       console.warn("[Spotify] 401 received; attempting silent refresh for", url);
       const newToken = await refreshTokenSilently();
@@ -269,21 +338,24 @@ const HostPage = () => {
       window.history.replaceState({}, "", "/host");
       const redirectUri = `${window.location.origin}/host`;
       exchangeCodeForToken(code, redirectUri).then((data) => {
+        const nextRefreshToken = data.refresh_token || refreshTokenRef.current;
+        persistSpotifyTokens({ accessToken: data.access_token, refreshToken: nextRefreshToken, expiresIn: data.expires_in });
+        accessTokenRef.current = data.access_token;
+        refreshTokenRef.current = nextRefreshToken;
         setAccessToken(data.access_token);
-        setRefreshToken(data.refresh_token);
-        if (data.expires_in) {
-          localStorage.setItem("spotify_expires_at", String(Date.now() + data.expires_in * 1000));
-        }
-        setTimeout(() => {
-          if (data.refresh_token) {
-            refreshAccessToken(data.refresh_token).then((r) => {
+        setRefreshToken(nextRefreshToken);
+        if (data.expires_in && nextRefreshToken) setTimeout(() => {
+          if (nextRefreshToken) {
+            refreshAccessToken(nextRefreshToken).then((r) => {
+              const refreshedRefreshToken = r.refresh_token || nextRefreshToken;
+              persistSpotifyTokens({ accessToken: r.access_token, refreshToken: refreshedRefreshToken, expiresIn: r.expires_in });
+              accessTokenRef.current = r.access_token;
+              refreshTokenRef.current = refreshedRefreshToken;
               setAccessToken(r.access_token);
-              if (r.expires_in) {
-                localStorage.setItem("spotify_expires_at", String(Date.now() + r.expires_in * 1000));
-              }
+              setRefreshToken(refreshedRefreshToken);
             });
           }
-        }, (data.expires_in - 120) * 1000);
+        }, Math.max((data.expires_in - 120) * 1000, 1000));
       }).catch(() => {
         console.error("Failed to exchange code");
       });
@@ -292,6 +364,7 @@ const HostPage = () => {
 
   // Load Spotify SDK + auto-initialize player
   useEffect(() => {
+    if (!spotifyAuthReady) return;
     if (!accessToken) return;
 
     const script = document.createElement("script");
@@ -356,7 +429,7 @@ const HostPage = () => {
     };
 
     return () => { script.remove(); };
-  }, [accessToken]);
+  }, [accessToken, spotifyAuthReady, spotifyFetch]);
 
   // Subscribe to queue
   useEffect(() => {
