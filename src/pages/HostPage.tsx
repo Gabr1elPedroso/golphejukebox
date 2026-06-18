@@ -222,12 +222,20 @@ const HostPage = () => {
 
   // Authenticated fetch wrapper that handles 401 via refresh
   const spotifyFetch = useCallback(async (url: string, init: RequestInit = {}): Promise<Response> => {
-    const token = accessTokenRef.current;
+    let token = accessTokenRef.current || getStoredSpotifyToken("spotify_access_token");
+    if (token && !accessTokenRef.current) {
+      accessTokenRef.current = token;
+      setAccessToken(token);
+    }
+    if (!token) {
+      console.warn("[Spotify] Request blocked: no access token restored yet", url);
+      return new Response(JSON.stringify({ error: "missing_spotify_access_token" }), { status: 401 });
+    }
     const buildHeaders = (t: string) => ({
       ...(init.headers || {}),
       Authorization: `Bearer ${t}`,
     });
-    let res = await fetch(url, { ...init, headers: token ? buildHeaders(token) : init.headers });
+    let res = await fetch(url, { ...init, headers: buildHeaders(token) });
     if (res.status === 401) {
       console.warn("[Spotify] 401 received; attempting silent refresh for", url);
       const newToken = await refreshTokenSilently();
@@ -322,18 +330,21 @@ const HostPage = () => {
       window.history.replaceState({}, "", "/host");
       const redirectUri = `${window.location.origin}/host`;
       exchangeCodeForToken(code, redirectUri).then((data) => {
+        const nextRefreshToken = data.refresh_token || refreshTokenRef.current;
+        persistSpotifyTokens({ accessToken: data.access_token, refreshToken: nextRefreshToken, expiresIn: data.expires_in });
+        accessTokenRef.current = data.access_token;
+        refreshTokenRef.current = nextRefreshToken;
         setAccessToken(data.access_token);
-        setRefreshToken(data.refresh_token);
-        if (data.expires_in) {
-          localStorage.setItem("spotify_expires_at", String(Date.now() + data.expires_in * 1000));
-        }
+        setRefreshToken(nextRefreshToken);
         setTimeout(() => {
-          if (data.refresh_token) {
-            refreshAccessToken(data.refresh_token).then((r) => {
+          if (nextRefreshToken) {
+            refreshAccessToken(nextRefreshToken).then((r) => {
+              const refreshedRefreshToken = r.refresh_token || nextRefreshToken;
+              persistSpotifyTokens({ accessToken: r.access_token, refreshToken: refreshedRefreshToken, expiresIn: r.expires_in });
+              accessTokenRef.current = r.access_token;
+              refreshTokenRef.current = refreshedRefreshToken;
               setAccessToken(r.access_token);
-              if (r.expires_in) {
-                localStorage.setItem("spotify_expires_at", String(Date.now() + r.expires_in * 1000));
-              }
+              setRefreshToken(refreshedRefreshToken);
             });
           }
         }, (data.expires_in - 120) * 1000);
