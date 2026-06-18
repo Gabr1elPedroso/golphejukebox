@@ -122,18 +122,51 @@ const HostPage = () => {
 
   // Persist tokens to localStorage so they survive reloads / tab close
   useEffect(() => {
-    if (accessToken) localStorage.setItem("spotify_access_token", accessToken);
+    if (accessToken) persistSpotifyTokens({ accessToken });
   }, [accessToken]);
   useEffect(() => {
-    if (refreshToken) localStorage.setItem("spotify_refresh_token", refreshToken);
+    if (refreshToken) persistSpotifyTokens({ refreshToken });
   }, [refreshToken]);
 
-  // Restore tokens from localStorage on mount
+  // Restore Spotify auth from storage before the player starts making API calls
   useEffect(() => {
-    const stored = localStorage.getItem("spotify_access_token");
-    const storedRefresh = localStorage.getItem("spotify_refresh_token");
-    if (stored) setAccessToken(stored);
-    if (storedRefresh) setRefreshToken(storedRefresh);
+    let cancelled = false;
+    const stored = getStoredSpotifyToken("spotify_access_token");
+    const storedRefresh = getStoredSpotifyToken("spotify_refresh_token");
+    const expiresAt = Number(getStoredSpotifyToken("spotify_expires_at") || "0");
+
+    if (stored) {
+      accessTokenRef.current = stored;
+      setAccessToken(stored);
+    }
+    if (storedRefresh) {
+      refreshTokenRef.current = storedRefresh;
+      setRefreshToken(storedRefresh);
+    }
+    console.log("[Spotify] Token restaurado do localStorage:", Boolean(stored), "refresh:", Boolean(storedRefresh));
+
+    if (storedRefresh && expiresAt && expiresAt <= Date.now() + 120000) {
+      refreshAccessToken(storedRefresh)
+        .then((r) => {
+          if (cancelled) return;
+          persistSpotifyTokens({ accessToken: r.access_token, refreshToken: r.refresh_token || storedRefresh, expiresIn: r.expires_in });
+          accessTokenRef.current = r.access_token;
+          refreshTokenRef.current = r.refresh_token || storedRefresh;
+          setAccessToken(r.access_token);
+          setRefreshToken(r.refresh_token || storedRefresh);
+        })
+        .catch((err) => {
+          console.error("[Spotify] Falha ao renovar token restaurado:", err);
+          disconnectSpotify({ silent: true });
+        })
+        .finally(() => {
+          if (!cancelled) setSpotifyAuthReady(true);
+        });
+      return () => { cancelled = true; };
+    }
+
+    setSpotifyAuthReady(true);
+    return () => { cancelled = true; };
   }, []);
 
   const disconnectSpotify = useCallback((opts?: { silent?: boolean; reload?: boolean }) => {
