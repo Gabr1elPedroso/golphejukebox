@@ -204,8 +204,12 @@ const HostPage = () => {
     refreshingRef.current = (async () => {
       try {
         const r = await refreshAccessToken(rt);
+        const nextRefreshToken = r.refresh_token || rt;
+        persistSpotifyTokens({ accessToken: r.access_token, refreshToken: nextRefreshToken, expiresIn: r.expires_in });
         setAccessToken(r.access_token);
+        setRefreshToken(nextRefreshToken);
         accessTokenRef.current = r.access_token;
+        refreshTokenRef.current = nextRefreshToken;
         console.log("[Spotify] Token refreshed silently");
         return r.access_token as string;
       } catch (err) {
@@ -336,7 +340,7 @@ const HostPage = () => {
         refreshTokenRef.current = nextRefreshToken;
         setAccessToken(data.access_token);
         setRefreshToken(nextRefreshToken);
-        setTimeout(() => {
+        if (data.expires_in && nextRefreshToken) setTimeout(() => {
           if (nextRefreshToken) {
             refreshAccessToken(nextRefreshToken).then((r) => {
               const refreshedRefreshToken = r.refresh_token || nextRefreshToken;
@@ -347,7 +351,7 @@ const HostPage = () => {
               setRefreshToken(refreshedRefreshToken);
             });
           }
-        }, (data.expires_in - 120) * 1000);
+        }, Math.max((data.expires_in - 120) * 1000, 1000));
       }).catch(() => {
         console.error("Failed to exchange code");
       });
@@ -356,6 +360,7 @@ const HostPage = () => {
 
   // Load Spotify SDK + auto-initialize player
   useEffect(() => {
+    if (!spotifyAuthReady) return;
     if (!accessToken) return;
 
     const script = document.createElement("script");
@@ -420,7 +425,7 @@ const HostPage = () => {
     };
 
     return () => { script.remove(); };
-  }, [accessToken]);
+  }, [accessToken, spotifyAuthReady, spotifyFetch]);
 
   // Subscribe to queue
   useEffect(() => {
