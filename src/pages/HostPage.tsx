@@ -157,7 +157,11 @@ const HostPage = () => {
         })
         .catch((err) => {
           console.error("[Spotify] Falha ao renovar token restaurado:", err);
-          disconnectSpotify({ silent: true });
+          clearSpotifyStorage();
+          accessTokenRef.current = null;
+          refreshTokenRef.current = null;
+          setAccessToken(null);
+          setRefreshToken(null);
         })
         .finally(() => {
           if (!cancelled) setSpotifyAuthReady(true);
