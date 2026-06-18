@@ -230,7 +230,7 @@ const HostPage = () => {
 
   // Authenticated fetch wrapper that handles 401 via refresh
   const spotifyFetch = useCallback(async (url: string, init: RequestInit = {}): Promise<Response> => {
-    let token = accessTokenRef.current || getStoredSpotifyToken("spotify_access_token");
+    const token = accessTokenRef.current || getStoredSpotifyToken("spotify_access_token");
     if (token && !accessTokenRef.current) {
       accessTokenRef.current = token;
       setAccessToken(token);
