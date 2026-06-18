@@ -39,6 +39,7 @@ serve(async (req) => {
       client_id: clientId,
       scope: scopes,
       redirect_uri: redirect_uri,
+      show_dialog: 'true',
     });
 
     const url = `https://accounts.spotify.com/authorize?${params.toString()}`;

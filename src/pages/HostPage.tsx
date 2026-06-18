@@ -22,6 +22,12 @@ function clearSpotifyStorage() {
       localStorage.removeItem(k);
       sessionStorage.removeItem(k);
     });
+    Object.keys(localStorage).forEach((k) => {
+      if (k.toLowerCase().includes("spotify")) localStorage.removeItem(k);
+    });
+    Object.keys(sessionStorage).forEach((k) => {
+      if (k.toLowerCase().includes("spotify")) sessionStorage.removeItem(k);
+    });
   } catch (e) {
     console.warn("Failed to clear Spotify storage", e);
   }
@@ -110,7 +116,7 @@ const HostPage = () => {
     if (storedRefresh) setRefreshToken(storedRefresh);
   }, []);
 
-  const disconnectSpotify = useCallback((opts?: { silent?: boolean }) => {
+  const disconnectSpotify = useCallback((opts?: { silent?: boolean; reload?: boolean }) => {
     clearSpotifyStorage();
     setAccessToken(null);
     setRefreshToken(null);
@@ -127,6 +133,9 @@ const HostPage = () => {
     autopilotTracksRef.current = null;
     if (!opts?.silent) {
       toast.success("Spotify desconectado.");
+    }
+    if (opts?.reload !== false) {
+      window.setTimeout(() => window.location.reload(), opts?.silent ? 0 : 350);
     }
   }, []);
 
