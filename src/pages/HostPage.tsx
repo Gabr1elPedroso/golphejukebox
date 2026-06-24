@@ -52,22 +52,18 @@ function clearSpotifyStorage() {
   }
 }
 
-function extractPlaylistId(input: string): string | null {
-  if (!input) return null;
-  let trimmed = input.trim();
-  if (!trimmed) return null;
-  // Strip query string and hash fragment (handles ?si=..., ?pi=..., #anchor)
-  trimmed = trimmed.split("?")[0].split("#")[0];
-  // Full URL (handles open.spotify.com, /intl-pt/playlist/, /embed/playlist/, trailing slash)
-  const urlMatch = trimmed.match(/spotify\.com\/(?:[^/]+\/)*playlist\/([a-zA-Z0-9]+)/i);
-  if (urlMatch) return urlMatch[1];
-  // Spotify URI: spotify:playlist:<id>
-  const uriMatch = trimmed.match(/spotify:playlist:([a-zA-Z0-9]+)/i);
-  if (uriMatch) return uriMatch[1];
-  // Bare ID — extract first alphanumeric run (Spotify IDs are 22-char base62)
-  const bareMatch = trimmed.match(/([a-zA-Z0-9]{16,})/);
-  if (bareMatch) return bareMatch[1];
-  return null;
+function extractPlaylistId(input: string): string {
+  if (!input) return '';
+  // Remove query parameters primeiro
+  const withoutQuery = input.split('?')[0];
+  // Handle Spotify URI form: spotify:playlist:<id>
+  if (withoutQuery.includes(':')) {
+    const uriParts = withoutQuery.split(':');
+    return uriParts[uriParts.length - 1].trim();
+  }
+  // Pega apenas a última parte da URL (o ID)
+  const parts = withoutQuery.split('/');
+  return parts[parts.length - 1].trim();
 }
 
 interface SpotifyPlaylistTrack {
@@ -487,49 +483,41 @@ const HostPage = () => {
     const rawId = fallbackPlaylistIdRef.current || DEFAULT_AUTOPILOT_PLAYLIST_ID;
     const playlistId = extractPlaylistId(rawId) || rawId;
     console.log("ID da Playlist extraído:", playlistId, "(raw:", rawId, ")");
-    const fields =
-      "items(track(uri,name,explicit,is_local,artists(name),album(images))),next";
-    let nextUrl: string | null =
-      `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=100&fields=${encodeURIComponent(fields)}`;
-    const collected: any[] = [];
-    let pages = 0;
-    while (nextUrl && pages < 10) {
-      console.log("[Autopilot] Fetching page", pages + 1, nextUrl);
-      const res = await spotifyFetch(nextUrl, {
-        headers: { "Content-Type": "application/json" },
-      });
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        console.error("Erro da API do Spotify:", res.status, body);
-        if (res.status === 404) {
-          toast.error("Playlist não encontrada. Verifique o ID/link salvo.");
-        } else if (res.status === 403) {
-          toast.error("Sem permissão (403). Reconecte o Spotify para conceder a permissão 'playlist-read'.");
-        } else if (res.status === 401) {
-          toast.error("Sessão Spotify expirada. Reconecte para continuar.");
-        } else {
-          toast.error(`Erro ao carregar Piloto Automático (${res.status}).`);
-        }
-        return [];
+    const url = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=100`;
+    console.log("[Autopilot] Fetching:", url);
+    const res = await spotifyFetch(url, {
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error("Erro da API do Spotify:", res.status, body);
+      if (res.status === 404) {
+        toast.error("Playlist não encontrada. Verifique o ID/link salvo.");
+      } else if (res.status === 403) {
+        toast.error("Sem permissão (403). Reconecte o Spotify para conceder a permissão 'playlist-read'.");
+      } else if (res.status === 401) {
+        toast.error("Sessão Spotify expirada. Reconecte para continuar.");
+      } else {
+        toast.error(`Erro ao carregar Piloto Automático (${res.status}).`);
       }
-      const data = await res.json();
-      const items = Array.isArray(data?.items) ? data.items : [];
-      collected.push(...items);
-      nextUrl = typeof data?.next === "string" ? data.next : null;
-      pages++;
+      return [];
     }
-    const all = collected
-      .map((it: any) => it?.track)
-      .filter((t: any) => t && t.uri && t.is_local !== true);
-    const clean = all.filter((t: any) => t.explicit !== true);
+    const data = await res.json();
+    const allItems = data.items || [];
+    // Filtra itens nulos, faixas locais e mantém apenas as NÃO explícitas
+    const cleanTracks = allItems
+      .map((item: any) => item.track)
+      .filter((track: any) => track !== null && !track.is_local)
+      .filter((track: any) => track.explicit === false);
     console.log(
-      `[Autopilot] Loaded ${all.length} tracks (${pages} pages), ${clean.length} clean (non-explicit)`
+      `[Autopilot] Loaded ${allItems.length} items, ${cleanTracks.length} clean (non-explicit)`
     );
-    if (clean.length === 0) {
-      toast.error("A playlist do Piloto Automático não tem faixas não-explícitas.");
+    if (cleanTracks.length === 0) {
+      toast.error("A playlist do Piloto Automático não tem faixas não-explícitas nesta página.");
+      return [];
     }
-    autopilotTracksRef.current = clean;
-    return clean;
+    autopilotTracksRef.current = cleanTracks;
+    return cleanTracks;
   }, [spotifyFetch]);
 
   const playAutopilotTrack = useCallback(async () => {
