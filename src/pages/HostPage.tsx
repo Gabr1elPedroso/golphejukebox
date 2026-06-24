@@ -54,16 +54,19 @@ function clearSpotifyStorage() {
 
 function extractPlaylistId(input: string): string | null {
   if (!input) return null;
-  const trimmed = input.trim();
+  let trimmed = input.trim();
   if (!trimmed) return null;
-  // Full URL: https://open.spotify.com/playlist/<id>?si=...
-  const urlMatch = trimmed.match(/open\.spotify\.com\/playlist\/([a-zA-Z0-9]+)/i);
+  // Strip query string and hash fragment (handles ?si=..., ?pi=..., #anchor)
+  trimmed = trimmed.split("?")[0].split("#")[0];
+  // Full URL (handles open.spotify.com, /intl-pt/playlist/, /embed/playlist/, trailing slash)
+  const urlMatch = trimmed.match(/spotify\.com\/(?:[^/]+\/)*playlist\/([a-zA-Z0-9]+)/i);
   if (urlMatch) return urlMatch[1];
   // Spotify URI: spotify:playlist:<id>
   const uriMatch = trimmed.match(/spotify:playlist:([a-zA-Z0-9]+)/i);
   if (uriMatch) return uriMatch[1];
-  // Bare ID (alphanumeric)
-  if (/^[a-zA-Z0-9]+$/.test(trimmed)) return trimmed;
+  // Bare ID — extract first alphanumeric run (Spotify IDs are 22-char base62)
+  const bareMatch = trimmed.match(/([a-zA-Z0-9]{16,})/);
+  if (bareMatch) return bareMatch[1];
   return null;
 }
 
