@@ -487,31 +487,44 @@ const HostPage = () => {
     const rawId = fallbackPlaylistIdRef.current || DEFAULT_AUTOPILOT_PLAYLIST_ID;
     const playlistId = extractPlaylistId(rawId) || rawId;
     console.log("ID da Playlist extraído:", playlistId, "(raw:", rawId, ")");
-    const url = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=100&fields=items(track(uri,name,explicit,is_local,artists(name),album(images)))`;
-    console.log("[Autopilot] Fetching playlist tracks:", playlistId, "with token len:", token.length);
-    const res = await spotifyFetch(url, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      console.error("Erro da API do Spotify:", res.status, body);
-      if (res.status === 404) {
-        toast.error("Playlist do Piloto Automático não encontrada. Verifique o ID/link salvo.");
-      } else if (res.status === 403) {
-        toast.error("Sem permissão (403). Reconecte o Spotify para conceder a permissão 'playlist-read'.");
-      } else if (res.status === 401) {
-        toast.error("Sessão Spotify expirada. Reconecte para continuar.");
-      } else {
-        toast.error(`Erro ao carregar Piloto Automático (${res.status}).`);
+    const fields =
+      "items(track(uri,name,explicit,is_local,artists(name),album(images))),next";
+    let nextUrl: string | null =
+      `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=100&fields=${encodeURIComponent(fields)}`;
+    const collected: any[] = [];
+    let pages = 0;
+    while (nextUrl && pages < 10) {
+      console.log("[Autopilot] Fetching page", pages + 1, nextUrl);
+      const res = await spotifyFetch(nextUrl, {
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        console.error("Erro da API do Spotify:", res.status, body);
+        if (res.status === 404) {
+          toast.error("Playlist não encontrada. Verifique o ID/link salvo.");
+        } else if (res.status === 403) {
+          toast.error("Sem permissão (403). Reconecte o Spotify para conceder a permissão 'playlist-read'.");
+        } else if (res.status === 401) {
+          toast.error("Sessão Spotify expirada. Reconecte para continuar.");
+        } else {
+          toast.error(`Erro ao carregar Piloto Automático (${res.status}).`);
+        }
+        return [];
       }
-      return [];
+      const data = await res.json();
+      const items = Array.isArray(data?.items) ? data.items : [];
+      collected.push(...items);
+      nextUrl = typeof data?.next === "string" ? data.next : null;
+      pages++;
     }
-    const data = await res.json();
-    const all = (data.items || []).map((it: any) => it.track).filter((t: any) => t && t.uri && !t.is_local);
-    const clean = all.filter((t: any) => t.explicit === false);
-    console.log(`[Autopilot] Loaded ${all.length} tracks, ${clean.length} clean (non-explicit)`);
+    const all = collected
+      .map((it: any) => it?.track)
+      .filter((t: any) => t && t.uri && t.is_local !== true);
+    const clean = all.filter((t: any) => t.explicit !== true);
+    console.log(
+      `[Autopilot] Loaded ${all.length} tracks (${pages} pages), ${clean.length} clean (non-explicit)`
+    );
     if (clean.length === 0) {
       toast.error("A playlist do Piloto Automático não tem faixas não-explícitas.");
     }
