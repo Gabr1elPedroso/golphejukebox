@@ -484,7 +484,7 @@ const HostPage = () => {
     const rawId = fallbackPlaylistIdRef.current || DEFAULT_AUTOPILOT_PLAYLIST_ID;
     const playlistId = extractPlaylistId(rawId) || rawId;
     console.log("ID da Playlist extraído:", playlistId, "(raw:", rawId, ")");
-    const url = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100&fields=items(track(uri,name,explicit,is_local,artists(name),album(images)))`;
+    const url = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=100&fields=items(track(uri,name,explicit,is_local,artists(name),album(images)))`;
     console.log("[Autopilot] Fetching playlist tracks:", playlistId, "with token len:", token.length);
     const res = await spotifyFetch(url, {
       headers: {
