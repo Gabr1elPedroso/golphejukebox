@@ -103,7 +103,9 @@ const HostPage = () => {
   const endingTrackRef = useRef(false);
   const lastPositionRef = useRef<number>(0);
   const lastTrackUriRef = useRef<string | null>(null);
+  const lastDurationRef = useRef<number>(0);
   const manualActionRef = useRef(false);
+  const playerRef = useRef<any>(null);
   const autopilotTracksRef = useRef<SpotifyPlaylistTrack[] | null>(null);
   const isAutopilotRef = useRef(false);
   const nowPlayingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -402,33 +404,90 @@ const HostPage = () => {
         setIsPlaying(!state.paused);
 
         const currentUri = state.track_window?.current_track?.uri ?? null;
-        const prevUri = lastTrackUriRef.current;
         const prevPos = lastPositionRef.current;
+        const prevDur = lastDurationRef.current;
+        const duration = state.duration ?? state.track_window?.current_track?.duration_ms ?? 0;
 
         // Natural end detection: was playing our track, now paused at position 0
         // and the SDK reports this same track as current (it loops back to start at end).
         const expectedUri = playingUriRef.current;
-        const trackJustEnded =
-          expectedUri &&
+        // Detect natural end in several SDK-report shapes:
+        //  A) same track looped back to 0 while paused (classic end).
+        //  B) same track paused at (near) duration.
+        //  C) SDK advanced to a different track we didn't ask for (queue exhausted).
+        const nearEnd =
+          duration > 0 && prevDur > 0 && prevPos > 0 && prevPos >= prevDur - 1500;
+        const loopedBackToStart =
           currentUri === expectedUri &&
           state.paused &&
           state.position === 0 &&
-          prevPos > 1000 &&
-          !manualActionRef.current;
+          prevPos > 1000;
+        const advancedAway =
+          expectedUri && currentUri && currentUri !== expectedUri;
+        const trackJustEnded =
+          !manualActionRef.current &&
+          expectedUri &&
+          (loopedBackToStart || (state.paused && nearEnd) || advancedAway);
 
         lastPositionRef.current = state.position;
         lastTrackUriRef.current = currentUri;
+        lastDurationRef.current = duration;
 
         if (trackJustEnded) {
+          console.log("[Player] Natural end detected", {
+            loopedBackToStart,
+            nearEnd,
+            advancedAway,
+            prevPos,
+            prevDur,
+            currentUri,
+            expectedUri,
+          });
+          playingUriRef.current = null;
           handleTrackEndedRef.current?.();
         }
       });
 
+      playerRef.current = p;
       p.connect();
     };
 
     return () => { script.remove(); };
   }, [accessToken, spotifyAuthReady, spotifyFetch]);
+
+  // Safety-net poll: if the SDK ever misses the end event, poll every 1s
+  // and force the end handler when we detect the track has finished.
+  useEffect(() => {
+    if (!deviceId) return;
+    const iv = setInterval(async () => {
+      const p = playerRef.current;
+      if (!p) return;
+      if (endingTrackRef.current) return;
+      if (manualActionRef.current) return;
+      if (!playingUriRef.current) return;
+      try {
+        const s = await p.getCurrentState();
+        if (!s) return;
+        const dur = s.duration ?? 0;
+        const pos = s.position ?? 0;
+        const uri = s.track_window?.current_track?.uri ?? null;
+        // If we still hold a playingUri but the SDK reports paused at start (looped)
+        // or paused very close to the end, treat as natural end.
+        const finished =
+          (s.paused && pos === 0 && lastPositionRef.current > 1000) ||
+          (s.paused && dur > 0 && pos >= dur - 1500) ||
+          (uri && uri !== playingUriRef.current);
+        if (finished) {
+          console.log("[Player] Poll detected end, invoking handler", { pos, dur, uri, expected: playingUriRef.current });
+          playingUriRef.current = null;
+          handleTrackEndedRef.current?.();
+        }
+      } catch (e) {
+        // getCurrentState can throw when player disconnects; ignore
+      }
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [deviceId]);
 
   // Subscribe to queue
   useEffect(() => {
@@ -591,6 +650,8 @@ const HostPage = () => {
       await removeFromQueue(track.id);
     }
     setIsPlaying(false);
+    setCurrentTrack(null);
+    currentTrackRef.current = null;
     playingUriRef.current = null;
     const freshQueue = await getQueue();
     queueRef.current = freshQueue;
