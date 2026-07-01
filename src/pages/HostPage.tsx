@@ -650,6 +650,8 @@ const HostPage = () => {
       await removeFromQueue(track.id);
     }
     setIsPlaying(false);
+    setCurrentTrack(null);
+    currentTrackRef.current = null;
     playingUriRef.current = null;
     const freshQueue = await getQueue();
     queueRef.current = freshQueue;
