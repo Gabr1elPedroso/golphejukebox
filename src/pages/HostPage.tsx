@@ -563,12 +563,24 @@ const HostPage = () => {
     }
     const data = await res.json();
     const allItems = data.items || [];
-    const cleanTracks = allItems
-      .map((item: any) => item.track || item)
-      .filter((track: any) => track && track.uri && track.type === 'track' && !track.is_local);
-    console.log(
-      `[Autopilot] Loaded ${allItems.length} items, ${cleanTracks.length} playable`
-    );
+    const cleanTracks = [];
+
+    for (const item of allItems) {
+      if (!item) continue;
+
+      // A API do Spotify coloca a faixa dentro de item.track
+      const track = item.track || item;
+
+      // Ignora faixas locais (verificando tanto no wrapper como na faixa)
+      if (item.is_local === true || track.is_local === true) continue;
+
+      // Só adiciona à lista se a faixa existir e tiver uma URI válida para tocar
+      if (track && track.uri) {
+        cleanTracks.push(track);
+      }
+    }
+
+    console.log(`[Autopilot] Filtradas ${cleanTracks.length} faixas tocáveis de ${allItems.length} recebidas.`);
     if (cleanTracks.length === 0) {
       toast.error("A playlist do Piloto Automático está vazia ou indisponível.");
       return [];
