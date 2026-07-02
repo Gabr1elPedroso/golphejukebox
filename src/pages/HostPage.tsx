@@ -563,16 +563,15 @@ const HostPage = () => {
     }
     const data = await res.json();
     const allItems = data.items || [];
-    // Filtra itens nulos, faixas locais e mantém apenas as NÃO explícitas
+    // Filtra itens nulos e faixas locais
     const cleanTracks = allItems
       .map((item: any) => item.track)
-      .filter((track: any) => track && track.id && !track.is_local)
-      .filter((track: any) => track.explicit === false);
+      .filter((track: any) => track && track.id && !track.is_local);
     console.log(
-      `[Autopilot] Loaded ${allItems.length} items, ${cleanTracks.length} clean (non-explicit)`
+      `[Autopilot] Loaded ${allItems.length} items, ${cleanTracks.length} playable`
     );
     if (cleanTracks.length === 0) {
-      toast.error("A playlist do Piloto Automático não tem faixas não-explícitas nesta página.");
+      toast.error("A playlist do Piloto Automático está vazia ou indisponível.");
       return [];
     }
     autopilotTracksRef.current = cleanTracks;
