@@ -563,9 +563,8 @@ const HostPage = () => {
     }
     const data = await res.json();
     const allItems = data.items || [];
-    console.log("Amostra da primeira faixa crua do Spotify:", allItems[0]?.track);
     const cleanTracks = allItems
-      .map((item: any) => item.track)
+      .map((item: any) => item.track || item)
       .filter((track: any) => track && track.uri && track.type === 'track' && !track.is_local);
     console.log(
       `[Autopilot] Loaded ${allItems.length} items, ${cleanTracks.length} playable`
