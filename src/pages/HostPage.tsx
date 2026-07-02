@@ -566,7 +566,7 @@ const HostPage = () => {
     // Filtra itens nulos, faixas locais e mantém apenas as NÃO explícitas
     const cleanTracks = allItems
       .map((item: any) => item.track)
-      .filter((track: any) => track !== null && !track.is_local)
+      .filter((track: any) => track && track.id && !track.is_local)
       .filter((track: any) => track.explicit === false);
     console.log(
       `[Autopilot] Loaded ${allItems.length} items, ${cleanTracks.length} clean (non-explicit)`
