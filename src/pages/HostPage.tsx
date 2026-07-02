@@ -542,7 +542,7 @@ const HostPage = () => {
     const rawId = fallbackPlaylistIdRef.current || DEFAULT_AUTOPILOT_PLAYLIST_ID;
     const playlistId = extractPlaylistId(rawId) || rawId;
     console.log("ID da Playlist extraído:", playlistId, "(raw:", rawId, ")");
-    const url = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=100`;
+    const url = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=100&market=BR`;
     console.log("[Autopilot] Fetching:", url);
     const res = await spotifyFetch(url, {
       headers: { "Content-Type": "application/json" },
@@ -563,10 +563,10 @@ const HostPage = () => {
     }
     const data = await res.json();
     const allItems = data.items || [];
-    // Filtra itens nulos e faixas locais
+    console.log("Amostra da primeira faixa crua do Spotify:", allItems[0]?.track);
     const cleanTracks = allItems
       .map((item: any) => item.track)
-      .filter((track: any) => track && track.id && !track.is_local);
+      .filter((track: any) => track && track.uri && track.type === 'track' && !track.is_local);
     console.log(
       `[Autopilot] Loaded ${allItems.length} items, ${cleanTracks.length} playable`
     );
