@@ -105,6 +105,7 @@ const HostPage = () => {
   const lastTrackUriRef = useRef<string | null>(null);
   const lastDurationRef = useRef<number>(0);
   const manualActionRef = useRef(false);
+  const isTransitioningRef = useRef(false);
   const playerRef = useRef<any>(null);
   const autopilotTracksRef = useRef<SpotifyPlaylistTrack[] | null>(null);
   const isAutopilotRef = useRef(false);
