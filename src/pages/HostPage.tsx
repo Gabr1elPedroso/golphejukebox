@@ -105,6 +105,7 @@ const HostPage = () => {
   const lastTrackUriRef = useRef<string | null>(null);
   const lastDurationRef = useRef<number>(0);
   const manualActionRef = useRef(false);
+  const isTransitioningRef = useRef(false);
   const playerRef = useRef<any>(null);
   const autopilotTracksRef = useRef<SpotifyPlaylistTrack[] | null>(null);
   const isAutopilotRef = useRef(false);
@@ -631,10 +632,22 @@ const HostPage = () => {
   }, [spotifyFetch]);
 
   const playNext = useCallback(async () => {
+    // Trava de segurança para impedir dupla execução em menos de 2 segundos
+    if (isTransitioningRef.current) {
+      console.log("playNext bloqueado: transição em andamento.");
+      return;
+    }
+    isTransitioningRef.current = true;
+
+    const releaseLock = () => {
+      setTimeout(() => { isTransitioningRef.current = false; }, 2000);
+    };
+
     const q = queueRef.current;
     if (q.length === 0) {
       // Queue empty → enter autopilot
       await playAutopilotTrack();
+      releaseLock();
       return;
     }
 
@@ -648,6 +661,8 @@ const HostPage = () => {
     } catch (err) {
       console.error("Error playing track:", err);
       setIsPlaying(false);
+    } finally {
+      releaseLock();
     }
   }, [playTrack, playAutopilotTrack]);
 
