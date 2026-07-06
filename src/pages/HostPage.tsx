@@ -566,18 +566,15 @@ const HostPage = () => {
     const allItems = data.items || [];
     const cleanTracks = [];
 
-    for (const item of allItems) {
-      if (!item) continue;
+    for (const obj of allItems) {
+      if (!obj) continue;
 
-      // A API do Spotify coloca a faixa dentro de item.track
-      const track = item.track || item;
+      const trackData = obj.track || obj.item || obj;
 
-      // Ignora faixas locais (verificando tanto no wrapper como na faixa)
-      if (item.is_local === true || track.is_local === true) continue;
+      if (obj.is_local === true || trackData.is_local === true) continue;
 
-      // Só adiciona à lista se a faixa existir e tiver uma URI válida para tocar
-      if (track && track.uri) {
-        cleanTracks.push(track);
+      if (trackData && trackData.uri && trackData.name) {
+        cleanTracks.push(trackData);
       }
     }
 
