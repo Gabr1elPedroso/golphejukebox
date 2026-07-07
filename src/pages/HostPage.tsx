@@ -667,14 +667,9 @@ const HostPage = () => {
     if (endingTrackRef.current) return;
     endingTrackRef.current = true;
 
-    // PAUSA IMEDIATA para impedir que o Spotify repita a música (Audio Bleed)
-    try {
-      const did = deviceIdRef.current;
-      if (did) {
-        await spotifyFetch(`https://api.spotify.com/v1/me/player/pause?device_id=${did}`, { method: "PUT" });
-      }
-    } catch (e) {
-      console.warn("Falha ao pausar na transição", e);
+    // PAUSA LOCAL INSTANTÂNEA (Sem atraso de rede) para evitar Audio Bleed
+    if (playerRef.current) {
+      playerRef.current.pause().catch((e: any) => console.warn("Falha no pause local", e));
     }
 
     const track = currentTrackRef.current;
@@ -690,9 +685,10 @@ const HostPage = () => {
     queueRef.current = freshQueue;
     endingTrackRef.current = false;
 
-    // Chama a próxima música após garantir o estado
+    // Chama a próxima música após garantir o estado limpo
     setTimeout(() => playNext(), 250);
-  }, [playNext, spotifyFetch]);
+  }, [playNext]);
+
 
   const handleTrackEndedRef = useRef<() => void>();
   useEffect(() => { handleTrackEndedRef.current = handleTrackEnded; }, [handleTrackEnded]);
