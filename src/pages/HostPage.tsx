@@ -666,6 +666,17 @@ const HostPage = () => {
   const handleTrackEnded = useCallback(async () => {
     if (endingTrackRef.current) return;
     endingTrackRef.current = true;
+
+    // PAUSA IMEDIATA para impedir que o Spotify repita a música (Audio Bleed)
+    try {
+      const did = deviceIdRef.current;
+      if (did) {
+        await spotifyFetch(`https://api.spotify.com/v1/me/player/pause?device_id=${did}`, { method: "PUT" });
+      }
+    } catch (e) {
+      console.warn("Falha ao pausar na transição", e);
+    }
+
     const track = currentTrackRef.current;
     if (track && !isAutopilotRef.current) {
       console.log("Track ended, removing from queue:", track.title);
@@ -677,10 +688,11 @@ const HostPage = () => {
     playingUriRef.current = null;
     const freshQueue = await getQueue();
     queueRef.current = freshQueue;
-
     endingTrackRef.current = false;
+
+    // Chama a próxima música após garantir o estado
     setTimeout(() => playNext(), 250);
-  }, [playNext]);
+  }, [playNext, spotifyFetch]);
 
   const handleTrackEndedRef = useRef<() => void>();
   useEffect(() => { handleTrackEndedRef.current = handleTrackEnded; }, [handleTrackEnded]);
