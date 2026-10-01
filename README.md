@@ -119,7 +119,3 @@ Acesse `http://localhost:8080`.
    - `playlist-read-collaborative`
 
 ---
-
-## 📄 Licença
-
-Uso interno corporativo do **Grupo Golphe**. Todos os direitos reservados.
