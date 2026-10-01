@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import GuestPage from "./pages/GuestPage";
 import HostPage from "./pages/HostPage";
 import NotFound from "./pages/NotFound";
+import OAuthConsent from "./pages/OAuthConsent";
 import { supabase } from "@/integrations/supabase/client";
 
 const HOST_EMAIL = "host@grupogolphe.com.br";
@@ -45,6 +46,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<GuestPage />} />
           <Route path="/host" element={<ProtectedHost />} />
+          <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
