@@ -9,6 +9,12 @@ import { supabase } from "@/integrations/supabase/client";
 
 const HOST_EMAIL = "host@grupogolphe.com.br";
 
+// Same-origin relative path saved by the OAuth consent page.
+const safeNext = (): string | null => {
+  const n = sessionStorage.getItem("auth_next");
+  return n && n.startsWith("/") && !n.startsWith("//") ? n : null;
+};
+
 const NameEntry = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -19,8 +25,9 @@ const NameEntry = () => {
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
+      const next = safeNext();
       const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+        redirect_uri: window.location.origin + (next ?? ""),
       });
       if (result.error) {
         toast.error("Erro ao iniciar login. Tente novamente.");
@@ -53,6 +60,8 @@ const NameEntry = () => {
         setHostLoading(false);
         return;
       }
+      const next = safeNext();
+      if (next) { sessionStorage.removeItem("auth_next"); window.location.href = next; return; }
       navigate("/host");
     } catch {
       toast.error("Credenciais inválidas.");
