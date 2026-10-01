@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "sdk_version": "3.0.4",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://ujoeexmkvbkoetaspazn.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "jukebox-vibes",
+      "version": "0.1.0",
+      "title": "JukeBox Vibes"
+    },
+    "tools": [
+      {
+        "name": "list_queue",
+        "title": "List queue",
+        "description": "List the songs currently in the jukebox queue, in play order (the first one is playing now).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
