@@ -133,7 +133,7 @@ const GuestPage = () => {
               alt="GAP Logo"
               className="w-8 h-8 object-contain"
             />
-            <span className="font-display font-bold text-white text-sm">GAP JUKEBOX</span>
+            <span className="font-display font-bold text-primary-foreground text-sm">GAP JUKEBOX</span>
           </div>
           <button
             onClick={() => {

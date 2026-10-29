@@ -72,8 +72,8 @@ O projeto conta com controle de spam por IP, autenticação corporativa restrita
 
 ### 2. Clonar o repositório
 ```bash
-git clone https://github.com/seu-usuario/golphe-jukebox.git
-cd golphe-jukebox
+git clone https://github.com/seu-usuario/gap-jukebox.git
+cd gap-jukebox
 ```
 
 ### 3. Instalar dependências
