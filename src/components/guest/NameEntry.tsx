@@ -82,10 +82,10 @@ const NameEntry = () => {
             <Music className="w-5 h-5 text-secondary" />
             <span className="text-secondary font-display font-bold text-sm">GAP JUKEBOX</span>
           </div>
-          <h1 className="text-4xl font-display font-bold text-primary-foreground">
+          <h1 className="text-4xl font-display font-bold text-secondary">
             Bem-vindo!
           </h1>
-          <p className="text-primary-foreground/70 text-sm">
+          <p className="text-secondary/70 text-sm">
             Acesso restrito aos colaboradores da GAP
           </p>
         </div>
@@ -96,20 +96,20 @@ const NameEntry = () => {
             placeholder="E-mail"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="h-11 rounded-xl bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/50"
+            className="h-11 rounded-xl bg-secondary/10 border-secondary/20 text-secondary placeholder:text-secondary/50"
           />
           <Input
             type="password"
             placeholder="Senha"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="h-11 rounded-xl bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/50"
+            className="h-11 rounded-xl bg-secondary/10 border-secondary/20 text-secondary placeholder:text-secondary/50"
           />
           <Button
             type="submit"
             disabled={hostLoading || !email || !password}
             variant="outline"
-            className="w-full h-11 rounded-xl font-display font-semibold bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
+            className="w-full h-11 rounded-xl font-display font-semibold bg-transparent border-secondary/30 text-secondary hover:bg-secondary/10"
           >
             {hostLoading ? "Entrando..." : "Entrar"}
           </Button>
