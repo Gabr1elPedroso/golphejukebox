@@ -133,7 +133,7 @@ const GuestPage = () => {
               alt="GAP Logo"
               className="w-8 h-8 object-contain"
             />
-            <span className="font-display font-bold text-primary-foreground text-sm">GAP JUKEBOX</span>
+            <span className="font-display font-bold text-secondary text-sm">GAP JUKEBOX</span>
           </div>
           <button
             onClick={() => {
@@ -143,7 +143,7 @@ const GuestPage = () => {
                 setUserName("");
               });
             }}
-            className="text-xs text-primary-foreground/60 hover:text-primary-foreground/90"
+            className="text-xs text-secondary/70 hover:text-secondary"
           >
             Olá, {userName} ✕
           </button>
@@ -154,7 +154,7 @@ const GuestPage = () => {
             placeholder="Buscar música..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-12 h-12 rounded-2xl bg-primary-foreground border-0 text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-secondary"
+            className="pl-12 h-12 rounded-2xl bg-card border border-secondary/30 text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-secondary"
           />
         </div>
       </header>
