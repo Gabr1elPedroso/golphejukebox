@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const DEFAULT_AUTOPILOT_PLAYLIST_ID = "37i9dQZF1DWYm2pA50XwQJ";
-const AUTOPILOT_LABEL = "Rádio Golphe";
+const AUTOPILOT_LABEL = "Rádio GAP";
 
 const SPOTIFY_TOKEN_KEYS = [
   "spotify_access_token",
@@ -376,7 +376,7 @@ const HostPage = () => {
 
     window.onSpotifyWebPlaybackSDKReady = () => {
       const p = new window.Spotify.Player({
-        name: "Golphe JukeBox",
+        name: "GAP JukeBox",
         getOAuthToken: (cb: (t: string) => void) => cb(accessTokenRef.current || accessToken),
         volume: 0.8,
       });
@@ -740,11 +740,11 @@ const HostPage = () => {
           <div className="space-y-4">
             <img
               src="https://ujoeexmkvbkoetaspazn.supabase.co/storage/v1/object/public/asset//mascote.png"
-              alt="Golphe Mascote"
+              alt="GAP Logo"
               className="w-32 h-32 object-contain mx-auto"
             />
             <h1 className="text-5xl font-display font-bold text-primary-foreground">
-              Golphe JukeBox
+              GAP JukeBox
             </h1>
             <p className="text-primary-foreground/60 text-lg">Painel do Host</p>
           </div>
@@ -779,10 +779,10 @@ const HostPage = () => {
       <div className="w-full flex items-center gap-3 px-6 py-3 bg-foreground/5 backdrop-blur-sm border-b border-primary-foreground/10">
         <img
           src="https://ujoeexmkvbkoetaspazn.supabase.co/storage/v1/object/public/asset//mascote.png"
-          alt="Golphe Mascote"
+          alt="GAP Logo"
           className="w-10 h-10 object-contain"
         />
-        <h1 className="text-xl font-display font-bold text-primary-foreground">Golphe JukeBox</h1>
+        <h1 className="text-xl font-display font-bold text-primary-foreground">GAP JukeBox</h1>
         <div className="ml-auto">
           <Button
             onClick={() => disconnectSpotify()}
@@ -843,7 +843,7 @@ const HostPage = () => {
             <div className="w-full flex justify-center mt-6">
               <Button
                 onClick={handleSkip}
-                className="h-12 px-6 rounded-full bg-[#ffc107] hover:bg-[#ffca28] text-[#1a1a2e] font-display font-bold"
+                className="h-12 px-6 rounded-full bg-accent hover:bg-accent/90 text-accent-foreground font-display font-bold"
               >
                 <SkipForward className="w-5 h-5 mr-2" />
                 Pular

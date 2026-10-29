@@ -11,7 +11,7 @@ import NowPlayingBanner from "@/components/guest/NowPlayingBanner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 
-const ALLOWED_DOMAIN = "@grupogolphe.com.br";
+const ALLOWED_DOMAIN = "@gap.com.br";
 
 const GuestPage = () => {
   const [userName, setUserName] = useState("");
@@ -35,16 +35,16 @@ const GuestPage = () => {
       const email = session.user.email || "";
       if (!email.toLowerCase().endsWith(ALLOWED_DOMAIN)) {
         await supabase.auth.signOut();
-        localStorage.removeItem("golphe_username");
+        localStorage.removeItem("gap_username");
         setIsNameSet(false);
         setUserName("");
         setAuthChecked(true);
-        toast.error("Acesso negado: utilize seu e-mail corporativo da Grupo Golphe.");
+        toast.error("Acesso negado: utilize seu e-mail corporativo da GAP.");
         return;
       }
       const meta = session.user.user_metadata || {};
       const name = meta.full_name || meta.name || email.split("@")[0];
-      localStorage.setItem("golphe_username", name);
+      localStorage.setItem("gap_username", name);
       setUserName(name);
       setIsNameSet(true);
       setAuthChecked(true);
@@ -76,7 +76,7 @@ const GuestPage = () => {
   }, [searchQuery, doSearch]);
 
   const handleAddToQueue = async (track: SpotifyTrack) => {
-    const name = localStorage.getItem("golphe_username") || userName;
+    const name = localStorage.getItem("gap_username") || userName;
     setAddingUri(track.uri);
     try {
       const { count } = await addToQueue({
@@ -125,20 +125,20 @@ const GuestPage = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-10 px-4 py-3 shadow-lg" style={{ backgroundColor: '#004a99' }}>
+      <header className="sticky top-0 z-10 px-4 py-3 shadow-lg" style={{ backgroundColor: 'hsl(var(--header))' }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <img
               src="https://ujoeexmkvbkoetaspazn.supabase.co/storage/v1/object/public/asset//mascote.png"
-              alt="Golphe Mascote"
+              alt="GAP Logo"
               className="w-8 h-8 object-contain"
             />
-            <span className="font-display font-bold text-white text-sm">GOLPHE JUKEBOX</span>
+            <span className="font-display font-bold text-primary-foreground text-sm">GAP JUKEBOX</span>
           </div>
           <button
             onClick={() => {
               supabase.auth.signOut().then(() => {
-                localStorage.removeItem("golphe_username");
+                localStorage.removeItem("gap_username");
                 setIsNameSet(false);
                 setUserName("");
               });
