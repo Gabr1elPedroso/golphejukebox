@@ -743,10 +743,10 @@ const HostPage = () => {
               alt="GAP Logo"
               className="w-32 h-32 object-contain mx-auto"
             />
-            <h1 className="text-5xl font-display font-bold text-primary-foreground">
+            <h1 className="text-5xl font-display font-bold text-secondary">
               GAP JukeBox
             </h1>
-            <p className="text-primary-foreground/60 text-lg">Painel do Host</p>
+            <p className="text-secondary/60 text-lg">Painel do Host</p>
           </div>
 
           <Button
@@ -767,7 +767,7 @@ const HostPage = () => {
       <div className="min-h-screen flex items-center justify-center gradient-primary">
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-4 border-secondary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-primary-foreground/70 font-display">Conectando ao player...</p>
+          <p className="text-secondary/70 font-display">Conectando ao player...</p>
         </div>
       </div>
     );
@@ -776,18 +776,18 @@ const HostPage = () => {
   return (
     <div className="min-h-screen gradient-primary flex flex-col relative">
       {/* Header / Brand Banner */}
-      <div className="w-full flex items-center gap-3 px-6 py-3 bg-foreground/5 backdrop-blur-sm border-b border-primary-foreground/10">
+      <div className="w-full flex items-center gap-3 px-6 py-3 bg-foreground/5 backdrop-blur-sm border-b border-secondary/10">
         <img
           src="https://ujoeexmkvbkoetaspazn.supabase.co/storage/v1/object/public/asset//mascote.png"
           alt="GAP Logo"
           className="w-10 h-10 object-contain"
         />
-        <h1 className="text-xl font-display font-bold text-primary-foreground">GAP JukeBox</h1>
+        <h1 className="text-xl font-display font-bold text-secondary">GAP JukeBox</h1>
         <div className="ml-auto">
           <Button
             onClick={() => disconnectSpotify()}
             variant="outline"
-            className="h-9 rounded-lg border-primary-foreground/20 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 font-display text-sm"
+            className="h-9 rounded-lg border-secondary/20 bg-transparent text-secondary hover:bg-secondary/10 font-display text-sm"
           >
             <LogOut className="w-4 h-4 mr-2" />
             Desconectar Spotify
@@ -824,10 +824,10 @@ const HostPage = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <h2 className="text-3xl lg:text-4xl font-display font-bold text-primary-foreground">
+              <h2 className="text-3xl lg:text-4xl font-display font-bold text-secondary">
                 {currentTrack.title}
               </h2>
-              <p className="text-xl text-primary-foreground/70">{currentTrack.artist}</p>
+              <p className="text-xl text-secondary/70">{currentTrack.artist}</p>
               {isAutopilot ? (
                 <p className="text-sm text-secondary flex items-center justify-center gap-1.5">
                   <Radio className="w-4 h-4" />
@@ -852,12 +852,12 @@ const HostPage = () => {
           </div>
         ) : (
           <div className="text-center space-y-6 animate-slide-up">
-            <Disc3 className="w-24 h-24 text-primary-foreground/20 mx-auto" />
+            <Disc3 className="w-24 h-24 text-secondary/20 mx-auto" />
             <div>
-              <h2 className="text-3xl font-display font-bold text-primary-foreground/40">
+              <h2 className="text-3xl font-display font-bold text-secondary/40">
                 Nenhuma música tocando
               </h2>
-              <p className="text-primary-foreground/30 mt-2">
+              <p className="text-secondary/30 mt-2">
                 Aguardando pedidos dos convidados...
               </p>
             </div>
@@ -875,14 +875,14 @@ const HostPage = () => {
       </div>
 
       {/* Queue sidebar */}
-      <div className="w-full lg:w-96 bg-foreground/5 backdrop-blur-sm border-l border-primary-foreground/10 p-6 overflow-y-auto max-h-screen">
+      <div className="w-full lg:w-96 bg-foreground/5 backdrop-blur-sm border-l border-secondary/10 p-6 overflow-y-auto max-h-screen">
         {/* Autopilot config */}
-        <div className="mb-6 p-4 rounded-xl bg-primary-foreground/5 border border-primary-foreground/10">
-          <h3 className="font-display font-bold text-primary-foreground/80 text-sm uppercase tracking-wider mb-3 flex items-center gap-2">
+        <div className="mb-6 p-4 rounded-xl bg-secondary/5 border border-secondary/10">
+          <h3 className="font-display font-bold text-secondary/80 text-sm uppercase tracking-wider mb-3 flex items-center gap-2">
             <SettingsIcon className="w-4 h-4 text-secondary" />
             Configuração do Piloto Automático
           </h3>
-          <p className="text-xs text-primary-foreground/50 mb-2">
+          <p className="text-xs text-secondary/50 mb-2">
             Playlist tocada quando a fila estiver vazia.
           </p>
           <div className="flex flex-col gap-2">
@@ -890,7 +890,7 @@ const HostPage = () => {
               value={playlistInput}
               onChange={(e) => setPlaylistInput(e.target.value)}
               placeholder="Link ou ID da playlist Spotify"
-              className="bg-background/10 text-primary-foreground placeholder:text-primary-foreground/30 border-primary-foreground/20"
+              className="bg-background/10 text-secondary placeholder:text-secondary/30 border-secondary/20"
             />
             <Button
               onClick={handleSavePlaylist}
@@ -899,19 +899,19 @@ const HostPage = () => {
             >
               {savingPlaylist ? "A guardar..." : "Guardar Playlist"}
             </Button>
-            <p className="text-[10px] text-primary-foreground/40 truncate">
+            <p className="text-[10px] text-secondary/40 truncate">
               Atual: {fallbackPlaylistId}
             </p>
           </div>
         </div>
 
-        <h3 className="font-display font-bold text-primary-foreground/80 text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+        <h3 className="font-display font-bold text-secondary/80 text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
           <Music className="w-4 h-4 text-secondary" />
           Próximas ({queue.length})
         </h3>
 
         {queue.length === 0 ? (
-          <p className="text-primary-foreground/30 text-sm text-center py-8">
+          <p className="text-secondary/30 text-sm text-center py-8">
             A fila está vazia
           </p>
         ) : (
@@ -919,7 +919,7 @@ const HostPage = () => {
             {queue.map((item, i) => (
               <div
                 key={item.id}
-                className="flex items-center gap-3 p-3 rounded-xl bg-primary-foreground/5 hover:bg-primary-foreground/10 transition-colors animate-slide-up"
+                className="flex items-center gap-3 p-3 rounded-xl bg-secondary/5 hover:bg-secondary/10 transition-colors animate-slide-up"
               >
                 <span className="text-xs font-display font-bold text-secondary w-5 text-center">
                   {i + 1}
@@ -930,10 +930,10 @@ const HostPage = () => {
                   className="w-10 h-10 rounded-lg object-cover"
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-primary-foreground truncate">
+                  <p className="text-sm font-semibold text-secondary truncate">
                     {item.title}
                   </p>
-                  <p className="text-xs text-primary-foreground/50 truncate">
+                  <p className="text-xs text-secondary/50 truncate">
                     {item.artist} · {item.requested_by}
                   </p>
                 </div>
