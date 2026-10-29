@@ -54,9 +54,15 @@ const NameEntry = () => {
         setHostLoading(false);
         return;
       }
-      if (data.user?.email?.toLowerCase() !== HOST_EMAIL) {
+      const userEmail = data.user?.email?.toLowerCase() ?? "";
+      if (userEmail !== HOST_EMAIL) {
+        if (userEmail.endsWith("@gap.com.br")) {
+          // Guest with company e-mail: the guest page picks up the session.
+          setHostLoading(false);
+          return;
+        }
         await supabase.auth.signOut();
-        toast.error("Credenciais inválidas.");
+        toast.error("Acesso negado: utilize seu e-mail corporativo da GAP.");
         setHostLoading(false);
         return;
       }
