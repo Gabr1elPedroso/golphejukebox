@@ -7,7 +7,7 @@ import { lovable } from "@/integrations/lovable";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
-const HOST_EMAIL = "host@grupogolphe.com.br";
+const HOST_EMAIL = "host@gap.com.br";
 
 // Same-origin relative path saved by the OAuth consent page.
 const safeNext = (): string | null => {
@@ -75,18 +75,18 @@ const NameEntry = () => {
         <div className="text-center space-y-2">
           <img
             src="https://ujoeexmkvbkoetaspazn.supabase.co/storage/v1/object/public/asset//mascote.png"
-            alt="Golphe Mascote"
+            alt="GAP Logo"
             className="w-32 h-32 mx-auto object-contain mb-2"
           />
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 mb-4">
             <Music className="w-5 h-5 text-secondary" />
-            <span className="text-secondary font-display font-bold text-sm">GOLPHE JUKEBOX</span>
+            <span className="text-secondary font-display font-bold text-sm">GAP JUKEBOX</span>
           </div>
           <h1 className="text-4xl font-display font-bold text-primary-foreground">
             Bem-vindo!
           </h1>
           <p className="text-primary-foreground/70 text-sm">
-            Acesso restrito aos membros da Grupo Golphe
+            Acesso restrito aos colaboradores da GAP
           </p>
         </div>
 

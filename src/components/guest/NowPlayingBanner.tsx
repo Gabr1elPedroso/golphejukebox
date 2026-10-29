@@ -38,7 +38,7 @@ const NowPlayingBanner = () => {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 text-[10px] font-display font-bold uppercase tracking-wider text-secondary">
           <Radio className="w-3 h-3" />
-          Tocando Rádio Golphe · Piloto Automático
+          Tocando Rádio GAP · Piloto Automático
         </div>
         <p className="text-sm font-semibold text-foreground truncate">
           {now.title}

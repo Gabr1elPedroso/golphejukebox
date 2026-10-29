@@ -1,4 +1,4 @@
-# 🎵 Golphe JukeBox
+# 🎵 GAP JukeBox
 
 > Jukebox corporativo e colaborativo em tempo real integrado ao Spotify, desenvolvido para equipes e eventos empresariais.
 
@@ -6,7 +6,7 @@
 
 ## 📌 Sobre o Projeto
 
-O **Golphe JukeBox** permite que colaboradores adicionem músicas a uma fila compartilhada em tempo real diretamente de seus smartphones, enquanto uma tela principal (**Host**) reproduz as faixas com o **Spotify Web Playback SDK**.
+O **GAP JukeBox** permite que colaboradores adicionem músicas a uma fila compartilhada em tempo real diretamente de seus smartphones, enquanto uma tela principal (**Host**) reproduz as faixas com o **Spotify Web Playback SDK**.
 
 O projeto conta com controle de spam por IP, autenticação corporativa restrita por domínio de e-mail, sincronização em tempo real e um **Piloto Automático (Fallback)** com playlist configurável, para que o som nunca pare quando a fila estiver vazia.
 
@@ -15,7 +15,7 @@ O projeto conta com controle de spam por IP, autenticação corporativa restrita
 ## ✨ Funcionalidades
 
 ### 📱 Convidados (`/`)
-- **Login corporativo**: Google OAuth restrito a contas `@grupogolphe.com.br`.
+- **Login corporativo**: Google OAuth restrito a contas `@gap.com.br`.
 - **Busca no Spotify**: pesquisa instantânea com capa, artista e duração.
 - **Fila em tempo real**: ordem de reprodução com destaque para as faixas do próprio usuário.
 - **Anti-spam**: até 3 músicas ativas por IP, com aviso de quantas faixas restam.
@@ -57,7 +57,7 @@ O projeto conta com controle de spam por IP, autenticação corporativa restrita
 
 | Rota | Descrição | Acesso |
 |---|---|---|
-| `/` | Interface mobile do convidado (busca e fila) | Google (@grupogolphe.com.br) |
+| `/` | Interface mobile do convidado (busca e fila) | Google (@gap.com.br) |
 | `/host` | Painel da TV, player e piloto automático | Login do Host |
 | `*` | Página 404 | Público |
 

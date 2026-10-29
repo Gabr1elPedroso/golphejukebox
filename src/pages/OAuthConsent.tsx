@@ -61,7 +61,7 @@ export default function OAuthConsent() {
               Conectar {details.client?.name ?? "um app"} à sua conta
             </h1>
             <p className="text-primary-foreground/70 text-sm">
-              Isso permite que {details.client?.name ?? "o app"} use o Golphe JukeBox em seu nome.
+              Isso permite que {details.client?.name ?? "o app"} use o GAP JukeBox em seu nome.
             </p>
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1 bg-transparent text-primary-foreground" disabled={busy} onClick={() => decide(false)}>Negar</Button>

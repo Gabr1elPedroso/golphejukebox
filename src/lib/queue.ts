@@ -11,10 +11,10 @@ export interface QueueItem {
 }
 
 export function getSessionId(): string {
-  let sessionId = localStorage.getItem("golphe_session_id");
+  let sessionId = localStorage.getItem("gap_session_id");
   if (!sessionId) {
     sessionId = crypto.randomUUID();
-    localStorage.setItem("golphe_session_id", sessionId);
+    localStorage.setItem("gap_session_id", sessionId);
   }
   return sessionId;
 }

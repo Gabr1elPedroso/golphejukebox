@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 
 const QueueList = () => {
   const [queue, setQueue] = useState<QueueItem[]>([]);
-  const currentUser = localStorage.getItem("golphe_username") || "";
+  const currentUser = localStorage.getItem("gap_username") || "";
 
   useEffect(() => {
     const unsubscribe = subscribeToQueue(setQueue);

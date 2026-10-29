@@ -10,7 +10,7 @@ import NotFound from "./pages/NotFound";
 import OAuthConsent from "./pages/OAuthConsent";
 import { supabase } from "@/integrations/supabase/client";
 
-const HOST_EMAIL = "host@grupogolphe.com.br";
+const HOST_EMAIL = "host@gap.com.br";
 
 const ProtectedHost = () => {
   const [status, setStatus] = useState<"loading" | "ok" | "denied">("loading");
